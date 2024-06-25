@@ -28,67 +28,50 @@ def pmin(a, b):
 
 
 def hang(d, r):
-    nr = len(r[:, 0])
-    nc = len(r[0, :])
-    answer = np.zeros((nr, nc))
-    # d = d * nr
+    nr, nc = r.shape
     d = np.array(d).reshape((nr, nc))
-    for i in range(0, nr):
-        for j in range(0, nc):
-            if d[i][j] < r[i][j]:
-                answer[i][j] = math.acos(d[i][j] / r[i][j])
-
+    answer = np.zeros((nr, nc))
+    mask = d < r
+    answer[mask] = np.arccos(d[mask] / r[mask])
     return answer
 
 
 def edgecorrection(points, r, w=None, maxweight=100):
-    if w == None:
+    if w is None:
         w = points.window
-    n = len(points.getX())
-    nrow = len(r[:, 0])
-    ncol = len(r[0, :])
-    assert nrow == n, "number of row should matach the number of points"
-    if nrow * ncol == 0:
-        return r
     x = points.getX()
     y = points.getY()
+    n = len(x)
+    nrow, ncol = r.shape
+    assert nrow == n, "number of row should match the number of points"
+    if nrow * ncol == 0:
+        return r
 
-    # calculate the perpendicular distance to the window
-    dL = [num - w.getXrange()[0] for num in x]
-    dR = [w.getXrange()[1] - num for num in x]
-    dD = [num - w.getYrange()[0] for num in y]
-    dU = [w.getYrange()[1] - num for num in y]
+    xrange = w.getXrange()
+    yrange = w.getYrange()
+    dL = x - xrange[0]
+    dR = xrange[1] - x
+    dD = y - yrange[0]
+    dU = yrange[1] - y
 
-    # calculate the angle
-    bLU = np.array([math.atan2(dU[i], dL[i]) for i in range(len(dU))]).reshape(
-        (nrow, ncol)
-    )
-    bLD = np.array([math.atan2(dD[i], dL[i]) for i in range(len(dD))]).reshape(
-        (nrow, ncol)
-    )
-    bRU = np.array([math.atan2(dU[i], dR[i]) for i in range(len(dU))]).reshape(
-        (nrow, ncol)
-    )
-    bRD = np.array([math.atan2(dD[i], dR[i]) for i in range(len(dD))]).reshape(
-        (nrow, ncol)
-    )
-    bUL = np.array([math.atan2(dL[i], dU[i]) for i in range(len(dL))]).reshape(
-        (nrow, ncol)
-    )
-    bUR = np.array([math.atan2(dR[i], dU[i]) for i in range(len(dR))]).reshape(
-        (nrow, ncol)
-    )
-    bDL = np.array([math.atan2(dL[i], dD[i]) for i in range(len(dL))]).reshape(
-        (nrow, ncol)
-    )
-    bDR = np.array([math.atan2(dR[i], dD[i]) for i in range(len(dR))]).reshape(
-        (nrow, ncol)
-    )
+    dL_reshape = dL.reshape(-1, 1)
+    dR_reshape = dR.reshape(-1, 1)
+    dD_reshape = dD.reshape(-1, 1)
+    dU_reshape = dU.reshape(-1, 1)
 
-    aL = hang(dL, r)
-    aR = hang(dR, r)
-    aD = hang(dD, r)
-    aU = hang(dU, r)
+    bLU = np.arctan2(dU_reshape, dL_reshape)
+    bLD = np.arctan2(dD_reshape, dL_reshape)
+    bRU = np.arctan2(dU_reshape, dR_reshape)
+    bRD = np.arctan2(dD_reshape, dR_reshape)
+    bUL = np.arctan2(dL_reshape, dU_reshape)
+    bUR = np.arctan2(dR_reshape, dU_reshape)
+    bDL = np.arctan2(dL_reshape, dD_reshape)
+    bDR = np.arctan2(dR_reshape, dD_reshape)
+
+    aL = hang(dL_reshape, r)
+    aR = hang(dR_reshape, r)
+    aD = hang(dD_reshape, r)
+    aU = hang(dU_reshape, r)
 
     cL = pmin(aL, bLU) + pmin(aL, bLD)
     cR = pmin(aR, bRU) + pmin(aR, bRD)
@@ -96,7 +79,7 @@ def edgecorrection(points, r, w=None, maxweight=100):
     cD = pmin(aD, bDL) + pmin(aD, bDR)
 
     ext = cL + cR + cU + cD
-    ext = np.reshape(ext, (nrow, ncol))
+    ext = ext.reshape(nrow, ncol)
 
     weight = 1 / (1 - ext / (2 * math.pi))
     weight = weight.squeeze()
