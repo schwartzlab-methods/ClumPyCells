@@ -1,15 +1,20 @@
-from .pointPattern import *
+import logging
 import math
-import pandas as pd
-import numpy as np
+import os
+import pickle
+import sys
 from itertools import combinations
+
 import matplotlib.pyplot as plt
-import logging, sys
+import numpy as np
+import pandas as pd
+
 from .breakpts import *
-from .sm_density import *
 from .closepairs import *
-from .window import *
+from .pointPattern import *
+from .sm_density import *
 from .unnormdensity import *
+from .window import *
 
 
 def convertToWindow(domain):
@@ -313,6 +318,7 @@ def markcorr(
     saveImage=True,
     savefolder="./result/",
     remove_zeros=True,
+    saveCache=True,
     pp=None,
 ):
     # obtain point pattern values
@@ -388,7 +394,6 @@ def markcorr(
 
     # creating data structure to store the result
     funs = {}
-    output_names = []
     if remove_zeros == False:
         # find close pairs of points for all the points
         close = closepairs(X, rmax, d, pp=pp)
@@ -399,6 +404,12 @@ def markcorr(
 
     for coli in markx:
         for colj in markx:
+            name = f"{coli} vs. {colj}"
+
+            # Skip if the result is cached
+            if os.path.exists(f"{savefolder}{name}.pkl"):
+                continue
+
             result = []
             mari = markx[coli].to_numpy()
             marj = markx[colj].to_numpy()
@@ -450,7 +461,6 @@ def markcorr(
                         result.append([1] * len(r))
                         result.append([1] * len(r))
                         name = coli + " vs. " + colj
-                        output_names.append(name)
                         funs[name] = result
 
                         if saveImage == True:
@@ -485,7 +495,6 @@ def markcorr(
                         if "translate" in correction:
                             result.append([1] * len(r))
                         name = coli + " vs. " + colj
-                        output_names.append(name)
                         funs[name] = result
 
                         if saveImage == True:
@@ -538,9 +547,12 @@ def markcorr(
                     Miso = sewsmod(dIJ, ff, edgewt, Ef, r, method[0])
                     result.append(Miso)
 
-            name = coli + " vs. " + colj
-            output_names.append(name)
-            funs[name] = result
+            if saveCache:
+                f = open(f"{savefolder}{name}.pkl", "wb")
+                pickle.dump(result, f)
+                f.close()
+            else:
+                funs[name] = result
 
             if saveImage == True:
                 fig = plt.figure()
@@ -563,24 +575,61 @@ def markcorr(
                 plt.savefig(fname=name)
                 plt.close("all")
 
-    ncol = len(markx.columns)
-    # fig, ax = plt.subplots(ncol, ncol, squeeze=False)
+    if saveCache:
+        funs = {}
+        for filename in os.listdir(savefolder):
+            if filename.endswith(".pkl"):
+                file_path = os.path.join(savefolder, filename)
+                with open(file_path, "rb") as file:
+                    try:
+                        file_data = pickle.load(file)
+                    except:
+                        logging.ERROR(f"Missing File:{file_path}")
+                        exit(1)
+                funs[filename[:-4]] = file_data
+    if saveImage:
+        keys = list(funs.keys())
+        ncol = len(markx.columns)
+        fig, ax = plt.subplots(ncol, ncol, squeeze=False)
 
-    # for i in range(ncol):
-    #     for j in range(ncol):
-    #         for p in range(1, 2):
-    #             ax[i, j].plot(r, funs[output_names[j + i * ncol]][p])
-    #         ax[i, j].plot(r, [1] * len(r), "--")
-    #         ax[i, j].set_title(output_names[j + i * ncol])
+        for i in range(ncol):
+            for j in range(ncol):
+                key = keys[j + i * ncol]
+                fun_curves = funs[key]
 
-    # for x in ax.flat:
-    #     x.set(xlabel='r', ylabel='kmm')
+                # Plot the first curve (index 0) if it exists
+                if len(fun_curves) > 0:
+                    ax[i, j].plot(r, fun_curves[0], label="Curve 1", color="blue")
 
-    # fig.legend(correction if len(correction) == 1 else ["translate", "isotropic"])
-    # fig.tight_layout()
+                # Plot the second curve (index 1) if it exists
+                if len(fun_curves) > 1:
+                    ax[i, j].plot(r, fun_curves[1], label="Curve 2", color="orange")
 
-    # if saveImage:
-    #     plt.savefig(savefolder + "all_images.png")
-    # plt.close('all')
+                # Plot the reference line
+                ax[i, j].plot(r, [1] * len(r), "--", label="Reference", color="green")
+                ax[i, j].set_title(key)
+
+        for x in ax.flat:
+            x.set(xlabel="r", ylabel="kmm")
+
+        # Update the legend to handle one or two curves
+        if len(correction) == 1:
+            fig.legend([correction[0], "Reference"])
+        else:
+            fig.legend(["translate", "isotropic", "Reference"])
+
+        fig.tight_layout()
+
+        plt.savefig(savefolder + "all_images.png")
+        plt.close("all")
+
+    if saveCache:
+        for filename in os.listdir(savefolder):
+            if filename.endswith(".pkl"):
+                file_path = os.path.join(savefolder, filename)
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    logging.error(f"Error removing file: {file_path} - {e}")
 
     return r, funs
