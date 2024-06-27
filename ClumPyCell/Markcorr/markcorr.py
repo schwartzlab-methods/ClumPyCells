@@ -130,14 +130,6 @@ def edgetrans(X, Y=None, W=None, exact=False, paired=False, dx=None, dy=None):
             for i in range(0, n, 1):
                 Wshift = window(dx[i], dy[i])
                 weight.append(window.overlap(W, Wshift))
-
-    # elif W.getType() == "mask":
-    #     gW =
-    #            ## compute set covariance of window
-    #            if(is.null(gW)) gW <- setcov(W)
-    #            ## evaluate set covariance at these vectors
-    #            gvalues <- lookup.im(gW, dx, dy, naok=TRUE, strict=FALSE)
-    # weight = W.getArea()/gvalues
     if not paired:
         weight = np.array(weight).reshape((nX, nY))
 
@@ -173,11 +165,6 @@ def implemented_for_K(correction, windowtype, explicit):
                 sys.exit(2)
             correction.remove("isotropic")
     return correction
-
-
-# def main():
-#     x = pointPattern.pointPattern([1, 2], [1, 2])
-#     print(edgecorrection(x, 1))
 
 
 ## Smooth Estimate of Weighted Second Moment Density
@@ -219,16 +206,6 @@ def sewsmod(d, ff, wt, Ef, rvals, method="smrep", nwtsteps=500):
         result = Kf / (Ef * K1)
     else:
         print("currently not support loess")
-    #            ## set up data frame
-    #            df <- data.frame(d=d, ff=ff, wt=wt)
-    #            ## fit curve to numerator using loess
-    #            fitobj <- loess(ff ~ d, data=df, weights=wt, ...)
-    #            ## evaluate fitted curve at desired r values
-    #            Eff <- predict(fitobj, newdata=data.frame(d=rvals))
-    #            ## normalise:
-    #            ## denominator is the sample mean of all ff[i,j],
-    #            ## an estimate of E(ff(M1,M2)) for M1,M2 independent marks
-    #            result <- Eff/Ef
     return result
 
 
