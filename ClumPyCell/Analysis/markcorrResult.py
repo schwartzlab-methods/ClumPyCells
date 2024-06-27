@@ -1,3 +1,4 @@
+import itertools
 import logging
 
 import altair as alt
@@ -6,6 +7,8 @@ import pandas as pd
 import scipy.stats as ss
 import statsmodels.stats.multitest as multi
 from permute.core import two_sample
+
+from .metadata import *
 
 
 class MarkcorrResult:
@@ -55,8 +58,13 @@ class MarkcorrResult:
             combinedResult = combinedResult[combinedResult != 1]
             max_data, min_data = self.find_max_min(combinedResult)
 
+        # Generate all possible combinations of axis values
+        axis_keys = list(axisName.keys())
+        combinations = list(itertools.product(axis_keys, repeat=2))
+        formatted_combinations = [f"{comb[0]} vs. {comb[1]}" for comb in combinations]
+
         for groupName in self.groups:
-            auc = pd.DataFrame()
+            auc = pd.DataFrame(index=formatted_combinations)
             r = pd.read_csv(f"{self.resultFolder}image_{i}/r.csv").drop(
                 ["Unnamed: 0"], axis=1
             )
@@ -82,6 +90,7 @@ class MarkcorrResult:
                         "Only min_mid_max and log are supported for the norm entry"
                     )
                 auc["image_%d" % i] = isoResult.sum()
+
             auc = auc[auc != 0]
             tot_auc[groupName] = auc
 
@@ -100,12 +109,7 @@ class MarkcorrResult:
                 auc = pd.DataFrame(
                     {"from": heatmap_x, "to": heatmap_y, "auc": auc_representation}
                 )
-                all_combinations = pd.MultiIndex.from_product(
-                    [list(axisName.values()), list(axisName.values())],
-                    names=["from", "to"],
-                ).to_frame(index=False)
-                auc = pd.merge(all_combinations, auc, on=["from", "to"], how="outer")
-                auc["auc"] = auc["auc"].where(pd.notnull(auc["auc"]), np.nan)
+
                 heatmap = (
                     alt.Chart(auc, title=groupName)
                     .mark_rect()
@@ -125,7 +129,6 @@ class MarkcorrResult:
                 )
 
                 tot_plot[groupName] = heatmap
-
         return tot_auc, tot_plot
 
     def plotCurve(self, imageNum, type1, type2):
@@ -282,8 +285,13 @@ class MarkcorrResult:
                     alternative="two-sided",
                 )
                 MWresult[col] = pValue
+        # Generate all possible combinations of axis values
+        axis_keys = list(axisName.keys())
+        combinations = list(itertools.product(axis_keys, repeat=2))
+        formatted_combinations = [f"{comb[0]} vs. {comb[1]}" for comb in combinations]
+        diffChart = pd.DataFrame(index=formatted_combinations)
+        diffChart["p"] = MWresult
 
-        diffChart = pd.DataFrame({"p": MWresult})
         if method == "MW":
             # apply fdr correction with benjamini hochberg correction
             diffChart["adjusted"] = multi.fdrcorrection(diffChart["p"])[1]
@@ -294,24 +302,24 @@ class MarkcorrResult:
         diffChart["from"] = heatmap_x
         diffChart["to"] = heatmap_y
 
-        # Make full axis and leave the non-existed ones as nan
-        all_combinations = pd.MultiIndex.from_product(
-            [list(axisName.values()), list(axisName.values())],
-            names=["from", "to"],
-        ).to_frame(index=False)
+        # # Make full axis and leave the non-existed ones as nan
+        # all_combinations = pd.MultiIndex.from_product(
+        #     [list(axisName.values()), list(axisName.values())],
+        #     names=["from", "to"],
+        # ).to_frame(index=False)
 
-        diffChart = pd.merge(
-            all_combinations, diffChart, on=["from", "to"], how="outer"
-        )
-        diffChart["pair"] = (
-            "Cluster_" + diffChart["from"] + " vs. Cluster_" + diffChart["to"]
-        )
+        # diffChart = pd.merge(
+        #     all_combinations, diffChart, on=["from", "to"], how="outer"
+        # )
+        # diffChart["pair"] = (
+        #     "Cluster_" + diffChart["from"] + " vs. Cluster_" + diffChart["to"]
+        # )
 
-        temp = diffChart.loc[diffChart["pair"] == "Cluster_melano vs. Cluster_Tc.ae"]
-        print(auc[col1].loc["Cluster_melano vs. Cluster_Tc.ae"])
-        print(auc[col2].loc["Cluster_melano vs. Cluster_Tc.ae"])
+        # temp = diffChart.loc[diffChart["pair"] == "Cluster_melano vs. Cluster_Tc.ae"]
+        # print(auc[col1].loc["Cluster_melano vs. Cluster_Tc.ae"])
+        # print(auc[col2].loc["Cluster_melano vs. Cluster_Tc.ae"])
 
-        diffChart.set_index("pair", inplace=True)
+        # diffChart.set_index("pair", inplace=True)
 
         # diffChart["pair"] = diffChart["from"] + " vs. " + diffChart["to"]
         # diffChart.set_index("pair", inplace=True)
@@ -370,16 +378,12 @@ class AMLResult(MarkcorrResult):
         self.intensity = intensity
         if sizeCorrection:
             if intensity:
-                resultFolder = (
-                    "/cluster/home/t114231uhn/AML_Public/Result/AML/intensity_withSize/"
-                )
+                resultFolder = HOMEDIR + "Result/AML/intensity_withSize/"
             else:
-                resultFolder = (
-                    "/cluster/home/t114231uhn/AML_Public/Result/AML/cellType_withSize/"
-                )
+                resultFolder = HOMEDIR + "Result/AML/cellType_withSize/"
         else:
             if intensity:
-                resultFolder = "/cluster/home/t114231uhn/AML_Public/Result/AML/intensity_withoutSize/"
+                resultFolder = HOMEDIR + "Result/AML/intensity_withoutSize/"
             else:
                 logging.error(
                     "cell type result without size correction has not been run yet"
@@ -426,9 +430,9 @@ class AMLResult(MarkcorrResult):
 class MelanomaResult(MarkcorrResult):
     def __init__(self, intensity: bool = False, groups={"All": range(72)}) -> None:
         if intensity:
-            resultFolder = "/cluster/home/t114231uhn/AML_Public/Result/Melanoma/Melanoma_intensity/"
+            resultFolder = HOMEDIR + "Result/Melanoma/Melanoma_intensity/"
         else:
-            resultFolder = "/cluster/home/t114231uhn/AML_Public/Result/Melanoma/Melanoma_cellType_more/"
+            resultFolder = HOMEDIR + "Result/Melanoma/Melanoma_cellType_more/"
             self.axisName = {
                 "Cluster_Tc.ae": "Tc.ae",
                 "Cluster_Tc.naive": "Tc.naive",
