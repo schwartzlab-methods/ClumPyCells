@@ -1,5 +1,6 @@
 import itertools
 import logging
+import sys
 
 import altair as alt
 import numpy as np
@@ -10,14 +11,26 @@ from permute.core import two_sample
 
 from .metadata import *
 
+# sys.path.append(HOMEDIR + "ClumPyCell/Analysis/altairThemes.py")
+
+# if True:  # In order to bypass isort when saving
+#     import altairThemes
+
+# # register the custom theme under a chosen name
+# alt.themes.register("publishTheme", altairThemes.publishTheme)
+
+# # enable the newly registered theme
+# alt.themes.enable("publishTheme")
+
 
 class MarkcorrResult:
-    def __init__(self, groups: dict, resultFolder: str) -> None:
+    def __init__(self, groups: dict, resultFolder: str, axisName: dict) -> None:
         """
         groups is a dictionary with the keys as the experiment names and the value as the number of images in that group
         """
         self.resultFolder = resultFolder
         self.groups = groups
+        self.axisName = axisName
 
     def getCombinedResult(self):
         combinedResult = pd.DataFrame()
@@ -39,9 +52,9 @@ class MarkcorrResult:
         norm: str = "min_mid_max",
         takeMean=True,
         plot=True,
-        axisName=None,
         r_range=None,
     ):
+        axisName = self.axisName
         tot_auc = {}
         # find max and min data based on the whole dataset
         if norm == "min_mid_max":
@@ -114,7 +127,9 @@ class MarkcorrResult:
                     alt.Chart(auc, title=groupName)
                     .mark_rect()
                     .encode(
-                        x=alt.X("from").sort(list(axisName.values())),
+                        x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
+                            list(axisName.values())
+                        ),
                         y=alt.Y("to").sort(list(axisName.values())),
                         color=alt.Color(
                             "auc",
@@ -302,28 +317,6 @@ class MarkcorrResult:
         diffChart["from"] = heatmap_x
         diffChart["to"] = heatmap_y
 
-        # # Make full axis and leave the non-existed ones as nan
-        # all_combinations = pd.MultiIndex.from_product(
-        #     [list(axisName.values()), list(axisName.values())],
-        #     names=["from", "to"],
-        # ).to_frame(index=False)
-
-        # diffChart = pd.merge(
-        #     all_combinations, diffChart, on=["from", "to"], how="outer"
-        # )
-        # diffChart["pair"] = (
-        #     "Cluster_" + diffChart["from"] + " vs. Cluster_" + diffChart["to"]
-        # )
-
-        # temp = diffChart.loc[diffChart["pair"] == "Cluster_melano vs. Cluster_Tc.ae"]
-        # print(auc[col1].loc["Cluster_melano vs. Cluster_Tc.ae"])
-        # print(auc[col2].loc["Cluster_melano vs. Cluster_Tc.ae"])
-
-        # diffChart.set_index("pair", inplace=True)
-
-        # diffChart["pair"] = diffChart["from"] + " vs. " + diffChart["to"]
-        # diffChart.set_index("pair", inplace=True)
-
         if takeMean:
             auc_rep1 = auc[col1].mean(axis=1)
             auc_rep2 = auc[col2].mean(axis=1)
@@ -332,16 +325,18 @@ class MarkcorrResult:
             auc_rep2 = auc[col2].median(axis=1)
 
         diff = auc_rep1 - auc_rep2
-        print(diff.loc["Cluster_melano vs. Cluster_Tc.ae"])
         diffChart["diff"] = diff
         diffChart["GT0"] = diffChart["diff"] > 0
         sig = diffChart.loc[diffChart["adjusted"] < 0.05]
+        diffChart.to_csv(HOMEDIR + "/Result/Test/diffchart.csv")
 
-        cir = (
+        heatmap_shape = (
             alt.Chart(diffChart)
-            .mark_point(size=1200, filled=True)
+            .mark_point(size=200, filled=True)
             .encode(
-                x=alt.X("from").sort(list(axisName.values())),
+                x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
+                    list(axisName.values())
+                ),
                 y=alt.Y("to").sort(list(axisName.values())),
                 color=alt.Color(
                     "diff",
@@ -351,11 +346,10 @@ class MarkcorrResult:
                 ),
                 shape="GT0",
             )
-            .properties(height=500, width=500)
         )
-        text = (
+        triangle = (
             alt.Chart(sig)
-            .mark_point(size=500, filled=False, shape="triangle-up")
+            .mark_point(size=100, filled=False, shape="triangle-up", strokeWidth=0.756)
             .encode(
                 x=alt.X("from").sort(list(axisName.values())),
                 y=alt.Y("to").sort(list(axisName.values())),
@@ -363,7 +357,7 @@ class MarkcorrResult:
             )
         )
 
-        plot = alt.layer(cir, text)
+        plot = alt.layer(heatmap_shape, triangle)
 
         return plot
 
@@ -388,10 +382,9 @@ class AMLResult(MarkcorrResult):
                 logging.error(
                     "cell type result without size correction has not been run yet"
                 )
-        super().__init__(groups, resultFolder=resultFolder)
 
         if self.intensity:
-            self.axisName = {
+            axisName = {
                 "Adipocytes": "Perilipin",
                 "B_cells": "CD20",
                 "HSC": "CD34",
@@ -405,7 +398,7 @@ class AMLResult(MarkcorrResult):
                 "T_cells": "CD3",
             }
         else:
-            self.axisName = {
+            axisName = {
                 "Adipocytes": "Adipocytes",
                 "B_cells": "B_cells",
                 "HSC": "HSC",
@@ -418,6 +411,7 @@ class AMLResult(MarkcorrResult):
                 "Myeloids": "Myeloids",
                 "T_cells": "T_cells",
             }
+        super().__init__(groups, resultFolder=resultFolder, axisName=axisName)
 
     def getAUC(self, norm: str = "min_mid_max", plot=True, r_range=None, takeMean=True):
         axisName = self.axisName
@@ -433,7 +427,7 @@ class MelanomaResult(MarkcorrResult):
             resultFolder = HOMEDIR + "Result/Melanoma/Melanoma_intensity/"
         else:
             resultFolder = HOMEDIR + "Result/Melanoma/Melanoma_cellType_more/"
-            self.axisName = {
+            axisName = {
                 "Cluster_Tc.ae": "Tc.ae",
                 "Cluster_Tc.naive": "Tc.naive",
                 "Cluster_Th.naive": "Th.naive",
@@ -445,13 +439,11 @@ class MelanomaResult(MarkcorrResult):
                 "Cluster_macro.mono": "macro.mono",
                 "Cluster_others": "others",
             }
-        super().__init__(groups=groups, resultFolder=resultFolder)
+        super().__init__(groups=groups, resultFolder=resultFolder, axisName=axisName)
 
     def getAUC(self, norm: str = "min_mid_max", plot=True, r_range=None, takeMean=True):
         axisName = self.axisName
-        return super().getAUC(
-            norm=norm, takeMean=takeMean, plot=plot, r_range=r_range, axisName=axisName
-        )
+        return super().getAUC(norm=norm, takeMean=takeMean, plot=plot, r_range=r_range)
 
     def getBoxPlot(self, auc: dict, cols):
         axisName = self.axisName
