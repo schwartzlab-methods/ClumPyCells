@@ -75,6 +75,18 @@ class Melanoma_metadata:
         # Melanoma cell location file based on Cell type
         self.cellTypeFile = HOMEDIR + "Data/ST4_cell_data.txt"
         self.colInfo = ["sample.id", "coord.x", "coord.y", "Cluster", 1200, 1200]
+        self.axisName = {
+            "Cluster_Tc.ae": "Tc.ae",
+            "Cluster_Tc.naive": "Tc.naive",
+            "Cluster_Th.naive": "Th.naive",
+            "Cluster_B": "B",
+            "Cluster_Th.ae": "Th.ae",
+            "Cluster_Treg": "Treg",
+            "Cluster_CD31": "CD31",
+            "Cluster_melano": "melano",
+            "Cluster_macro.mono": "macro.mono",
+            "Cluster_others": "others",
+        }
         mel_cellType = pd.read_csv(self.cellTypeFile, sep="\t")
 
         # image number to biopsy code reference dict, use index() to get the reverse
