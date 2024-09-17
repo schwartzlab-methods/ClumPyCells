@@ -17,11 +17,12 @@ alt.themes.register("publishTheme", altairThemes.publishTheme)
 alt.themes.enable("publishTheme")
 """
 
-from matplotlib.colors import LinearSegmentedColormap, to_hex, rgb2hex
 from typing import List
+
 import altair as alt
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap, rgb2hex, to_hex
 
 
 def publishTheme():
@@ -71,17 +72,25 @@ def publishTheme():
                 "titleFontWeight": "normal",
             },
             # For individual axis
-            # "axisX": {
-            #     "grid": False,
-            #     "domainColor": "#000000",
-            #     "labelFont": labelFont,
-            #     "labelFontSize": fontSize,
-            #     "labelAngle": 0,
-            #     "tickColor": axisColor,
-            #     "titleFont": font,
-            #     "titleFontSize": fontSize,
-            #     "titleFontWeight": "normal",
-            # },
+            "axisX": {
+                "grid": False,
+                "domainColor": "#000000",
+                "labelFont": labelFont,
+                "labelFontSize": fontSize,
+                "labelAngle": -45,
+                "tickColor": axisColor,
+                "titleFont": font,
+                "titleFontSize": fontSize,
+                "titleFontWeight": "normal",
+            },
+            "mark": {
+                "point": {
+                    "filled": False,  # Fill the point markers
+                    "shape": "triangle",  # Set default shape to triangle
+                    "strokeWidth": 0.756,  # Set default stroke width
+                    "stroke": "black",  # Set default stroke color
+                }
+            },
         }
     }
 

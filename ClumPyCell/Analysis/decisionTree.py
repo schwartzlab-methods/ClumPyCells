@@ -1,15 +1,15 @@
 import os
 import shutil
+
+import altair as alt
 import dtreeviz
 import numpy as np
-import altair as alt
 from bayes_opt import BayesianOptimization
-from markcorrResult import *
-from metadata import *
 from sklearn.model_selection import cross_validate
 from sklearn.tree import DecisionTreeClassifier, export_graphviz
-from metadata import create_folder, imageNum_to_biopNum
-import altairThemes as altthm
+
+from .markcorrResult import *
+from .metadata import *
 
 
 def cross_validation(model, _X, _y, _cv=3):
@@ -203,12 +203,12 @@ def view_node_stats(X, clf, saveFolder):
             x="leaf_num:N",
             y="count()",
             color=alt.Color(
-                "image_num:N",
+                "image_num:Q",
                 scale=alt.Scale(domain=list(range(num_images)), range=image_colors),
-                legend=alt.Legend(columns=2, symbolLimit=0),
+                legend=alt.Legend(gradientLength=200, title="Image Number"),
             ),
         )
-        .properties(title="Leaf Node Distribution per Image")
+        .properties(title="Leaf Node Distribution per Image", width=370)
     )
 
     # Second bar chart (image number by count, colored by leaf number)
@@ -219,9 +219,9 @@ def view_node_stats(X, clf, saveFolder):
             y="image_num:N",
             x="count()",
             color=alt.Color(
-                "leaf_num:N",
+                "leaf_num:Q",
                 scale=alt.Scale(domain=list(range(num_leaves)), range=leaf_colors),
-                legend=alt.Legend(columns=2, symbolLimit=0),
+                legend=alt.Legend(gradientLength=200, title="Leaf Number"),
             ),
         )
         .properties(title="Image Distribution per Leaf Node")
@@ -261,6 +261,3 @@ def decision_tree(intensity=True, saveFolder="./"):
     view_decision_tree(X, y, clf, folder)
     view_node_stats(X, clf, folder)
     # get_leaf_number(X, y, clf)
-
-
-decision_tree(True, saveFolder=os.path.join(HOMEDIR, "Result/AML/decisionTree/"))

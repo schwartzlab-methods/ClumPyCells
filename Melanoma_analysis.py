@@ -1,7 +1,11 @@
+import os
+
 import altair as alt
+
 from ClumPyCell.Analysis.markcorrResult import *
 from ClumPyCell.Analysis.metadata import *
-import os
+
+IMGF = HOMEDIR + "/Result/images/Melanoma/"
 
 
 def generateImages():
@@ -18,7 +22,7 @@ def generateImages():
     plot = MelanomaResult.displayImages(
         plots, [["nonICI", "ICI_nonResponse", "ICI_response"]]
     )
-    plot.save(HOMEDIR + "/Result/images/ICIres_nonRes_nonICI.html")
+    plot.save(IMGF + "ICIres_nonRes_nonICI.html")
 
     plot = MelanomaResult.find_diff(
         auc,
@@ -27,19 +31,19 @@ def generateImages():
         method="perm",
         axisName=mel_cellType.axisName,
     )
-    plot.save(HOMEDIR + "/Result/images/ICIres_nonRes_diff.html")
+    plot.save(IMGF + "ICIres_nonRes_diff.html")
 
     plot = MelanomaResult.find_diff(
         auc, col1="ICI", col2="nonICI", method="perm", axisName=mel_cellType.axisName
     )
-    plot.save(HOMEDIR + "/Result/images/ICI_nonICI_diff.html")
+    plot.save(IMGF + "ICI_nonICI_diff.html")
 
     mel_cellType = MelanomaResult(intensity=False, groups=ICI_response)
     auc, plots = mel_cellType.getAUC(takeMean=False)
     plot = MelanomaResult.displayImages(
         plots, [["ICI", "nonICI"], ["ICI_response", "ICI_nonResponse"]]
     )
-    plot.save(HOMEDIR + "/Result/images/ICI_nonICI_four.html")
+    plot.save(IMGF + "ICI_nonICI_four.html")
 
     # mel_cellType = MelanomaResult(intensity=False, groups=nonICI_source)
     # _, plots = mel_cellType.getAUC()
@@ -48,7 +52,7 @@ def generateImages():
     # _, plots = mel_cellType.getAUC()
     # plot2 = MelanomaResult.displayImages(plots, [list(ICI_source.keys())])
     # plot = alt.vconcat(plot1, plot2)
-    # plot.save(HOMEDIR + "/Result/images/nonICI_source.html")
+    # plot.save(IMGF + "nonICI_source.html")
 
     # mel_cellType = MelanomaResult(intensity=False, groups={"all": range(72)})
     # auc, _ = mel_cellType.getAUC()
@@ -77,12 +81,12 @@ def ICIvsNonICI():
     metadata = Melanoma_metadata()
     ICI_response = metadata.ICI_response_group
     mel_cellType = MelanomaResult(intensity=False, groups=ICI_response)
-    auc, plots = mel_cellType.getAUC(r_range=[120, 170])
-    plot = MelanomaResult.displayImages(
-        plots, [["nonICI", "ICI_nonResponse", "ICI_response"]]
-    )
-    plot.save(HOMEDIR + "/Result/images/ICIres_nonRes_nonICI.html")
 
+    auc, plots = mel_cellType.getAUC()
+    plot = MelanomaResult.displayImages(
+        plots, [["nonICI", "ICI_nonResponse", "ICI_response", "ICI"]]
+    )
+    plot.save(IMGF + "ICIres_nonRes_nonICI.html")
     plot = MelanomaResult.find_diff(
         auc,
         col1="ICI_response",
@@ -91,7 +95,18 @@ def ICIvsNonICI():
         axisName=mel_cellType.axisName,
         takeMean=True,
     )
-    plot.save(HOMEDIR + "/Result/images/ICIres_nonRes_diff.html")
+    plot.save(IMGF + "ICIres_nonRes_diff.html")
+
+    auc, plots = mel_cellType.getAUC(r_range=[120, 170])
+    plot = MelanomaResult.find_diff(
+        auc,
+        col1="ICI_response",
+        col2="ICI_nonResponse",
+        method="perm",
+        axisName=mel_cellType.axisName,
+        takeMean=True,
+    )
+    plot.save(IMGF + "ICIres_nonRes_diff_Rrange.html")
 
     # plot = MelanomaResult.find_diff(
     #     auc,
@@ -101,14 +116,29 @@ def ICIvsNonICI():
     #     axisName=mel_cellType.axisName,
     #     takeMean=True,
     # )
-    # plot.save(HOMEDIR + "/Result/images/ICI_nonICI_diff.html")
+    # plot.save(IMGF + "ICI_nonICI_diff.html")
 
     # mel_cellType = MelanomaResult(intensity=False, groups=ICI_response)
     # auc, plots = mel_cellType.getAUC(takeMean=False)
     # plot = MelanomaResult.displayImages(
     #     plots, [["ICI", "nonICI"], ["ICI_response", "ICI_nonResponse"]]
     # )
-    # plot.save(HOMEDIR + "/Result/images/ICI_nonICI_four.html")
+    # plot.save(IMGF + "ICI_nonICI_four.html")
+
+
+def plotMedianAggregation():
+    metadata = Melanoma_metadata()
+    ICI_response = metadata.ICI_response_group
+    mel_cellType = MelanomaResult(intensity=False, groups=ICI_response)
+    auc, _ = mel_cellType.getAUC()
+
+
+def heatmap_all():
+    metadata = Melanoma_metadata()
+    mel_cellType = MelanomaResult(intensity=False, groups={"all": range(0, 72)})
+    auc, plots = mel_cellType.getAUC(r_range=[120, 170])
+    plot = MelanomaResult.displayImages(plots, [["all"]])
+    plot.save(IMGF + "heatmap_all.html")
 
 
 def boxplots():
@@ -118,10 +148,10 @@ def boxplots():
     auc, plots = mel_cellType.getAUC()
 
     box_plots = mel_cellType.getBoxPlot(auc, ["ICI_response", "ICI_nonResponse"])
-    box_plots.save(HOMEDIR + "/Result/images/ICI_nonICI_boxplot.html")
+    box_plots.save(IMGF + "ICI_nonICI_boxplot.html")
 
 
-def plotimage():
+def plotPointDistribution():
     metadata = Melanoma_metadata()
     mel_dataFile = pd.read_csv(metadata.cellTypeFile, sep="\t")
     biopCode = metadata.image2biop

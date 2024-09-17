@@ -1,12 +1,29 @@
+import json
+import logging
+import os
+import shutil
+import sys
+
+import altair as alt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import os
 from matplotlib.lines import Line2D
-import shutil
-import logging
 
-HOMEDIR = "/cluster/home/t114231uhn/AML_Public/"
+with open("config.json", "r") as file:
+    config = json.load(file)
+HOMEDIR = config["HOMEDIR"]
+
+sys.path.append(HOMEDIR + "ClumPyCell/Analysis/altairThemes.py")
+
+if True:  # In order to bypass isort when saving
+    import altairThemes
+
+# register the custom theme under a chosen name
+alt.themes.register("publishTheme", altairThemes.publishTheme)
+
+# enable the newly registered theme
+alt.themes.enable("publishTheme")
 
 
 class AML_metadata:

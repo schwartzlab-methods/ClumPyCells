@@ -1,6 +1,20 @@
+import sys
+
 import altair as alt
+
 from ClumPyCell.Analysis.markcorrResult import *
 from ClumPyCell.Analysis.metadata import *
+
+sys.path.append(HOMEDIR + "altairThemes.py")
+
+if True:  # In order to bypass isort when saving
+    import altairThemes
+
+# register the custom theme under a chosen name
+alt.themes.register("publishTheme", altairThemes.publishTheme)
+
+# enable the newly registered theme
+alt.themes.enable("publishTheme")
 
 
 def plot_images(AMLvsNBM=True, MinMax=True, BlastPercentage=True):
@@ -10,7 +24,9 @@ def plot_images(AMLvsNBM=True, MinMax=True, BlastPercentage=True):
         auc, plts = aml.getAUC()
         auc_plts = AMLResult.displayImages(plts, [["NBM", "AML"]])
         auc_plts.save(HOMEDIR + "/Result/images/NBMvsAML.html")
-        diff_plts = AMLResult.find_diff(auc, "AML", "NBM", aml.axisName)
+        diff_plts = AMLResult.find_diff(
+            auc=auc, col1="AML", col2="NBM", axisName=aml.axisName
+        )
         diff_plts.save(HOMEDIR + "/Result/images/AML_NBM_diff.html")
     if MinMax:
         id = auc["AML"].stack().idxmin()
@@ -74,25 +90,21 @@ def permutation_result():
         aml_permutation[f"perm_{i}"] = auc["AML"].mean(axis=1)
         print(aml_permutation)
         nbm_permutation[f"perm_{i}"] = auc["NBM"].mean(axis=1)
-    aml_permutation.to_csv(
-        "/cluster/home/t114231uhn/AML_Public/Result/AML/Permutation/perm_aml.csv"
-    )
-    nbm_permutation.to_csv(
-        "/cluster/home/t114231uhn/AML_Public/Result/AML/Permutation/perm_nbm.csv"
-    )
+    aml_permutation.to_csv(HOMEDIR + "Result/AML/Permutation/perm_aml.csv")
+    nbm_permutation.to_csv(HOMEDIR + "Result/AML/Permutation/perm_nbm.csv")
 
 
 def permutation_p():
-    aml = AMLResult(sizeCorrection=True, intensity=False)
+    aml = AMLResult(sizeCorrection=True, intensity=True)
     auc_obs, _ = aml.getAUC(plot=False)
     auc_obs_mean = auc_obs["AML"].mean(axis=1)
     auc_obs_mean = auc_obs_mean.transpose()
-    perm_aml = pd.read_csv(
-        "/cluster/home/t114231uhn/AML_Public/Result/AML/Permutation/perm_aml.csv"
-    ).drop(["Unnamed: 0"], axis=1)
-    perm_nbm = pd.read_csv(
-        "/cluster/home/t114231uhn/AML_Public/Result/AML/Permutation/perm_nbm.csv"
-    ).drop(["Unnamed: 0"], axis=1)
+    perm_aml = pd.read_csv(HOMEDIR + "Result/AML/Permutation/perm_aml.csv").drop(
+        ["Unnamed: 0"], axis=1
+    )
+    perm_nbm = pd.read_csv(HOMEDIR + "Result/AML/Permutation/perm_nbm.csv").drop(
+        ["Unnamed: 0"], axis=1
+    )
     auc_obs_mean_reordered = auc_obs_mean[perm_aml.columns]
     count_condition_met = pd.Series(index=perm_aml.columns, dtype=int)
 
@@ -130,7 +142,9 @@ def permutation_p():
         alt.Chart(heatmapData, title="AML")
         .mark_rect()
         .encode(
-            x=alt.X("from").sort(list(aml.axisName.values())),
+            x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
+                list(aml.axisName.values())
+            ),
             y=alt.Y("to").sort(list(aml.axisName.values())),
             color=alt.Color(
                 "auc",
@@ -139,12 +153,12 @@ def permutation_p():
                 ),
             ),
         )
-        .properties(height=500, width=500)
+        .properties()
     )
 
     sig = (
         alt.Chart(inSig)
-        .mark_point(size=500, filled=False, shape="triangle-up")
+        .mark_point(size=100, filled=False, shape="triangle-up", strokeWidth=0.756)
         .encode(
             x=alt.X("from").sort(list(aml.axisName.values())),
             y=alt.Y("to").sort(list(aml.axisName.values())),
@@ -197,7 +211,9 @@ def permutation_p():
         alt.Chart(heatmapData, title="NBM")
         .mark_rect()
         .encode(
-            x=alt.X("from").sort(list(aml.axisName.values())),
+            x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
+                list(aml.axisName.values())
+            ),
             y=alt.Y("to").sort(list(aml.axisName.values())),
             color=alt.Color(
                 "auc",
@@ -206,11 +222,11 @@ def permutation_p():
                 ),
             ),
         )
-        .properties(height=500, width=500)
+        .properties()
     )
     sig = (
         alt.Chart(inSig)
-        .mark_point(size=500, filled=False, shape="triangle-up")
+        .mark_point(size=100, filled=False, shape="triangle-up", strokeWidth=0.756)
         .encode(
             x=alt.X("from").sort(list(aml.axisName.values())),
             y=alt.Y("to").sort(list(aml.axisName.values())),
@@ -238,4 +254,8 @@ def permutation_p():
     (aml_text | nbm_text).save(HOMEDIR + f"/Result/images/perm_text_combined.html")
 
 
-plot_images(False, False, True)
+def plot_AML(imageNum):
+    aml_meta = AML_metadata()
+    col_info = aml_meta.colInfo
+    dataFile = pd.read_csv(HOMEDIR + "Data/output/Normal2.csv")
+    plotImage(dataFile=dataFile, dataFile_colNames=col_info, imageName=1)

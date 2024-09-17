@@ -1,4 +1,5 @@
 import os
+
 from markcorrResult import *
 
 
@@ -29,6 +30,43 @@ def test_p_value():
     auc, singlePlots = a.getAUC(plot=True)
     plot = a.find_diff(auc, "AML", "NBM")
     plot.save("/Users/leo/Schwartzlab/AML_project/rewriteImages/p-value.html")
+
+
+def combine_cache():
+    base_dir = (
+        "/cluster/home/t114231uhn/AML_Public/Result/Melanoma/Melanoma_cellType_more"
+    )
+    for i in range(51, 72):
+        folder_name = os.path.join(base_dir, f"image_{i}")
+        # List to store data from each pickle file
+        data = {}
+        iso_file_path = os.path.join(folder_name, "iso.csv")
+        # Iterate over each file in the directory
+        if os.path.exists(iso_file_path) or os.path.exists(folder_name):
+            for filename in os.listdir(folder_name):
+                if filename.endswith(".pkl"):
+                    # Construct the full file path
+                    file_path = os.path.join(folder_name, filename)
+
+                    # Load the list from the pickle file
+                    with open(file_path, "rb") as file:
+                        try:
+                            file_data = pickle.load(file)
+                        except:
+                            print(file_path)
+                            exit(1)
+                    data[filename[:-4]] = file_data
+                    iso = {}
+            for j in data:
+                iso[j] = data[j][0]
+            iso = pd.DataFrame(iso)
+            length = len(iso.columns)
+            if length not in [36, 49, 64, 81, 100, 121]:
+                errorMsg = f"image_{i} contains unfinished data detected by wrong number of output file"
+                logging.error(errorMsg)
+            if length > 36:
+                iso.to_csv(folder_name + "/iso.csv")
+        print(i, end="")
 
 
 def convert_result():
