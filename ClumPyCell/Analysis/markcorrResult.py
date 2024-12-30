@@ -356,7 +356,7 @@ class MarkcorrResult:
                 color=alt.value("black"),
             )
         )
-
+        print(sig)
         plot = alt.layer(heatmap_shape, triangle)
 
         return plot
@@ -414,9 +414,8 @@ class AMLResult(MarkcorrResult):
         super().__init__(groups, resultFolder=resultFolder, axisName=axisName)
 
     def getAUC(self, norm: str = "min_mid_max", plot=True, r_range=None, takeMean=True):
-        axisName = self.axisName
         auc, plot = super().getAUC(
-            norm=norm, takeMean=takeMean, plot=plot, r_range=r_range, axisName=axisName
+            norm=norm, takeMean=takeMean, plot=plot, r_range=r_range
         )
         return auc, plot
 

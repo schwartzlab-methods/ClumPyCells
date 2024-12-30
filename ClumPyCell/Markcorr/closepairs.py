@@ -156,15 +156,13 @@ def closePpairs(xx, yy, dia, rr, nguess, pp=None):
                 dx, dy = abs(xx[j] - xi), abs(yy[j] - yi)
                 if dx < rr and dy < rr:
                     d2 = max(0, math.sqrt(dx * dx + dy * dy) - di / 2 - dia[j] / 2)
-                    distance = math.sqrt(d2)
-                    area = overlapA(di, distance, distance)
                     for k in range(len(pp_x)):
                         p1, p2, p3 = (
                             np.array([xi, yi]),
                             np.array([xx[j], yy[j]]),
                             np.array([pp_x[k], pp_y[k]]),
                         )
-                        d = np.linalg.norm(np.cross(p2 - p1, p1 - p3)) / np.linalg.norm(
+                        d = np.linalg.norm(np.cross(d - p1, p1 - p3)) / np.linalg.norm(
                             p2 - p1
                         )
                         if d < pp_d[k] / 2:
@@ -175,7 +173,6 @@ def closePpairs(xx, yy, dia, rr, nguess, pp=None):
                         jout.append(j + 1)
                         iout.append(i + 1)
                         dout.append(d2)
-                        areaWt.append(area)
     return iout, jout, dout, areaWt
 
 

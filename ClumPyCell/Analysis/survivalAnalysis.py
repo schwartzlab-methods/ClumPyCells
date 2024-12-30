@@ -1,16 +1,18 @@
 import os
-import shutil
-from metadata import *
+
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
-from lifelines import CoxPHFitter, KaplanMeierFitter
-from markcorrResult import *
+from lifelines import CoxPHFitter, KaplanMeierFitter, statistics
 from sksurv.preprocessing import OneHotEncoder
+
+from .markcorrResult import *
+from .metadata import *
 
 
 def get_clinical_data():
     clinical = pd.read_csv(
-        os.join.path(HOMEDIR, "Data/Clinical_data.csv"),
+        os.path.join(HOMEDIR, "Data/Clinical_data.csv"),
         usecols=[
             "Age",
             "Biopsy Number",
@@ -64,8 +66,8 @@ def get_clinical_data():
 
 
 def get_spatial_clinical_combined(clinical, auc_t):
-    biopsy_num, _ = imageNum_to_biopNum()
-    auc_t["Biopsy Number"] = biopsy_num
+    biopsy_num = imageNum_to_biopNum()
+    auc_t["Biopsy Number"] = biopsy_num[:36]
     survival_data = auc_t.merge(
         clinical, left_on="Biopsy Number", right_on="Biopsy Number"
     )
@@ -123,7 +125,7 @@ def KM_age(data, saveFolder="."):
         kmf.fit(age_group_data["OST"], event_observed=age_group_data["survival_status"])
 
         # Plot the survival function
-        kmf.plot_survival_function(ci_show=True, label=label)
+        kmf.plot_survival_function(ci_show=False, label=label)
 
     plt.ylim(0, 1)
     plt.ylabel("est. probability of survival $\hat{S}(t)$")
@@ -139,8 +141,22 @@ def KM_median(data, col, plotCurve=True, saveFolder="./"):
     kmm_median = data[col].median()
 
     # Split the data based on whether they are greater than or equal to the median
-    gtm = data[data[col] >= kmm_median]
+    gtm = data[data[col] > kmm_median]
     stm = data[data[col] < kmm_median]
+
+    # Find rows exactly equal to the median
+    equal_to_median = data[data[col] == kmm_median]
+
+    # Assign median-equal rows to the group with fewer elements to balance the split
+    lab = {}
+    if len(gtm) < len(stm):
+        gtm = pd.concat([gtm, equal_to_median])
+        lab[0] = "greater than or equal to median"
+        lab[1] = "smaller than median"
+    else:
+        stm = pd.concat([stm, equal_to_median])
+        lab[1] = "smaller than or equal to median"
+        lab[0] = "greater than median"
 
     # Initialize KaplanMeierFitter
     kmf = KaplanMeierFitter()
@@ -148,19 +164,23 @@ def KM_median(data, col, plotCurve=True, saveFolder="./"):
     # Fit data for greater than or equal to median
     kmf.fit(gtm["OST"], event_observed=gtm["survival_status"])
     half_gtm = kmf.percentile(0.5)
+    res = statistics.logrank_test(
+        gtm["OST"], stm["OST"], gtm["survival_status"], stm["survival_status"]
+    )
 
     if plotCurve:
         plt.figure()
-        kmf.plot_survival_function(
-            ci_show=True, label="greater than or equal to median"
-        )
+        kmf.plot_survival_function(ci_show=False, label=lab[0])
 
     # Fit data for less than median
     kmf.fit(stm["OST"], event_observed=stm["survival_status"])
     half_stm = kmf.percentile(0.5)
 
     if plotCurve:
-        kmf.plot_survival_function(ci_show=True, label="smaller than median")
+        x_position = plt.xlim()[1] * 0.7
+        y_position = 0.5
+        kmf.plot_survival_function(ci_show=False, label=lab[1])
+        plt.text(x_position, y_position, f"log rank test: {res.p_value}")
         plt.ylim(0, 1)
         plt.ylabel("est. probability of survival $\hat{S}(t)$")
         plt.xlabel("time $t$")
@@ -201,8 +221,7 @@ def run_survival_analysis(intensity=True, saveFolder="./"):
 
     marks = list(result.axisName.keys())
     idd_cols = result.get_idd_columns(marks)
-    intensity_auc, _ = result.getAUC(norm="min_mid_max", plot=False, r_max=150)
-
+    intensity_auc, _ = result.getAUC(norm="min_mid_max", plot=False)
     clinical_data = get_clinical_data()
     clinical_with_spatial = get_spatial_clinical_combined(
         clinical=clinical_data, auc_t=intensity_auc["AML"].transpose()[idd_cols]
@@ -248,29 +267,12 @@ def run_survival_analysis(intensity=True, saveFolder="./"):
         by_patient=False,
         saveFolder=folder + "KM_by_ROI/",
     )
-
-
-def run_analysis(intensity=True, saveFolder="./"):
-    if intensity:
-        result = AMLResult(sizeCorrection=True, intensity=True)
-        folder = saveFolder + "intensity/"
-    else:
-        result = AMLResult(sizeCorrection=True, intensity=False)
-        folder = saveFolder + "cellType/"
-    create_folder(folder)
-
-    auc, plot = result.getAUC(plot=True, r_max=150)
-    image = AMLResult.displayImages(plot, [["AML", "NBM"]])
-    image.save(folder + "AML_NBM_auc.html")
-    image = AMLResult.find_diff(auc, "AML", "NBM", axisName=result.axisName)
-    image.save(folder + "diff.html")
-
-
-# run_survival_analysis(
-#     intensity=True,
-#     saveFolder="/Users/leo/Schwartzlab/AML_project/result/AML_analysis/AML_survival/",
-# )
-run_analysis(
-    intensity=False,
-    saveFolder="/Users/leo/Schwartzlab/AML_project/result/AML_analysis/",
-)
+    print(clinical_with_spatial.columns)
+    KM_median_patients(
+        clinical_with_spatial, "Erythroids vs. Macrophages", saveFolder=folder
+    )
+    KM_median_patients(
+        clinical_with_spatial, "Myeloids vs. Myeloids", saveFolder=folder
+    )
+    KM_median_patients(clinical_with_spatial, "HSC vs. HSC", saveFolder=folder)
+    KM_median_patients(clinical_with_spatial, "HSC vs. Macrophages", saveFolder=folder)
