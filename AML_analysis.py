@@ -2,10 +2,10 @@ import sys
 
 import altair as alt
 
-from ClumPyCell.Analysis.decisionTree import *
-from ClumPyCell.Analysis.markcorrResult import *
-from ClumPyCell.Analysis.metadata import *
-from ClumPyCell.Analysis.survivalAnalysis import *
+from ClumPyCells.Analysis.decisionTree import *
+from ClumPyCells.Analysis.markcorrResult import *
+from ClumPyCells.Analysis.metadata import *
+from ClumPyCells.Analysis.survivalAnalysis import *
 
 IMAGEFOLDER = HOMEDIR + "Result/images/AML/"
 sys.path.append(HOMEDIR + "altairThemes.py")

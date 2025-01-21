@@ -2,8 +2,8 @@ import os
 
 import altair as alt
 
-from ClumPyCell.Analysis.markcorrResult import *
-from ClumPyCell.Analysis.metadata import *
+from ClumPyCells.Analysis.markcorrResult import *
+from ClumPyCells.Analysis.metadata import *
 
 IMGF = HOMEDIR + "/Result/images/Melanoma/"
 
