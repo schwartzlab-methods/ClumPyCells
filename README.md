@@ -112,7 +112,7 @@ diff_plot = markcorr.find_diff(auc, "Group1", "Group2")
 AML IMC dataset: [AML Data](https://zenodo.org/records/14711407)
 Analysis Code: [Github](https://github.com/schwartzlab-methods/ClumPyCells_paper_figure)
 
-For more in-depth explanations of functions, please refer to the dedicated markdown files in the documentation.
+For more in-depth explanations of functions, please refer to the dedicated markdown files in the [documentation](https://github.com/schwartzlab-methods/ClumPyCells/tree/main/Documentation).
 
 ---
 
