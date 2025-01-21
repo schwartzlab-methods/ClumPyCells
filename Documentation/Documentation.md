@@ -88,6 +88,7 @@ Handles the analysis of spatial correlation results and provides aggregation ins
 - `plotCurve(imageNum, type1, type2) -> alt.Chart`: Generates a visualization of the correlation curve.
 - `getBoxPlot(auc, cols, axisName={}) -> alt.Chart`: Produces a box plot visualization.
 - `find_diff(auc, col1, col2, takeMean=True, method="MW", axisName=None) -> alt.Chart`: Identifies statistical differences between groups.
+- `displayImages(singlePlots: dict, order) -> alt.Chart`: Displays visualized images in a grid layout.
 
 **Example Usage:**
 ```python
@@ -98,6 +99,7 @@ axis_name = {"Type1": "Marker1", "Type2": "Marker2"}
 markcorr = MarkcorrResult(groups, result_folder, axis_name)
 combined_result = markcorr.getCombinedResult()
 auc, plots = markcorr.getAUC()
+image_grid = markcorr.displayImages(plots, [["Group1", "Group2"]])
 ```
 
 ---
@@ -136,5 +138,4 @@ decision_tree(intensity=True, saveFolder="./")
 ```
 
 ---
-
 
