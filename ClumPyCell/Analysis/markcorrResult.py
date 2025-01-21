@@ -347,17 +347,25 @@ class MarkcorrResult:
                 shape="GT0",
             )
         )
-        triangle = (
+
+        star = (
             alt.Chart(sig)
-            .mark_point(size=100, filled=False, shape="triangle-up", strokeWidth=0.756)
+            .mark_text(
+                size=12,
+                strokeWidth=0.756,
+                text="*",
+                align="center",
+                baseline="middle",
+                dy=3,
+            )
             .encode(
                 x=alt.X("from").sort(list(axisName.values())),
                 y=alt.Y("to").sort(list(axisName.values())),
                 color=alt.value("black"),
             )
         )
-        print(sig)
-        plot = alt.layer(heatmap_shape, triangle)
+
+        plot = alt.layer(heatmap_shape, star)
 
         return plot
 

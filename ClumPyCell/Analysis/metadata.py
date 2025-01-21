@@ -28,8 +28,8 @@ alt.themes.enable("publishTheme")
 
 class AML_metadata:
     def __init__(self) -> None:
-        self.nbm_file = f"{HOMEDIR}Data/output/AML.csv"
-        self.aml_file = f"{HOMEDIR}Data/output/Normal.csv"
+        self.nbm_file = f"{HOMEDIR}Data/output/Normal.csv"
+        self.aml_file = f"{HOMEDIR}Data/output/AML.csv"
         self.imageSize_x = 1056
         self.imageSize_y = 642
         self.cellTypes_antibody = {
@@ -69,7 +69,6 @@ class AML_metadata:
         )
         image2biop = imageNum_to_biopNum()
         aml_high, aml_low = [], []
-        print(len(image2biop))
         for i, biopCode in enumerate(image2biop):
             biop = blastData.loc[blastData["Biopsy_number"] == biopCode]
             try:
@@ -192,7 +191,6 @@ def imageNum_to_biopNum():
     for i in range(len(image_to_imageNum)):
         nbm_imageNum.append(image_to_imageNum.iloc[i, 0].split("_")[0])
 
-    print(len(aml_imageNum), len(nbm_imageNum))
     image2biop = aml_imageNum + nbm_imageNum
 
     return image2biop

@@ -177,6 +177,7 @@ def KM_median(data, col, plotCurve=True, saveFolder="./"):
     half_stm = kmf.percentile(0.5)
 
     if plotCurve:
+        plt.figure(figsize=(3, 2.5))
         x_position = plt.xlim()[1] * 0.7
         y_position = 0.5
         kmf.plot_survival_function(ci_show=False, label=lab[1])
@@ -186,7 +187,7 @@ def KM_median(data, col, plotCurve=True, saveFolder="./"):
         plt.xlabel("time $t$")
         plt.title(f"Survival curve based on {col}")
         plt.legend()
-        plt.savefig(f"{saveFolder}{col}.png")
+        plt.savefig(f"{saveFolder}{col}.svg", format="svg")
         plt.close()
 
     return abs(half_gtm - half_stm)

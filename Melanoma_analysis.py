@@ -151,6 +151,40 @@ def boxplots():
     box_plots.save(IMGF + "ICI_nonICI_boxplot.html")
 
 
+def tcae_vs_melano():
+    metadata = Melanoma_metadata()
+    ICI_response = metadata.ICI_response_group
+    mel_cellType = MelanomaResult(intensity=False, groups=ICI_response)
+    auc, plots = mel_cellType.getAUC(r_range=[220, 225])
+
+    res = auc["ICI_response"].transpose()["Cluster_Tc.ae vs. Cluster_melano"]
+    non_res = auc["ICI_nonResponse"].transpose()["Cluster_Tc.ae vs. Cluster_melano"]
+
+    res.dropna(inplace=True)
+    non_res.dropna(inplace=True)
+    # res.reset_index(drop=True, inplace=True)
+    # non_res.reset_index(drop=True, inplace=True)
+
+    res = pd.DataFrame(res)
+    non_res = pd.DataFrame(non_res)
+    res["group"] = "Responders"
+    non_res["group"] = "Non-responders"
+
+    boxData = pd.concat([res, non_res], axis=0)
+    boxData.rename(columns={"Cluster_Tc.ae vs. Cluster_melano": "value"}, inplace=True)
+    print(boxData)
+    plot = (
+        alt.Chart(boxData)
+        .mark_boxplot()
+        .encode(
+            x=alt.X("group", title="", axis=alt.Axis(labelAngle=-45)),
+            y=alt.Y("value", title="AUC"),
+            color=alt.Color("group"),
+        )
+    )
+    plot.save(IMGF + "tcae_vs_melano_boxplot.html")
+
+
 def plotPointDistribution():
     metadata = Melanoma_metadata()
     mel_dataFile = pd.read_csv(metadata.cellTypeFile, sep="\t")
@@ -161,9 +195,9 @@ def plotPointDistribution():
     plotImage(
         dataFile=mel_dataFile,
         dataFile_colNames=mel_colInfo,
-        imageName=biopCode[0],
+        imageName=biopCode[2],
         selected_cellTypes=["melano", "Tc.ae"],
-        saveName=HOMEDIR + "/Result/images/temp.svg",
+        saveName=HOMEDIR + "/Result/images/melanoVsTcae.svg",
     )
 
 
@@ -196,10 +230,8 @@ def get_permuation_p(kmmResFolder, groups, axisName, permFolder, permNum, plot=T
         auc_obs_mean = auc_obs_mean.transpose()
         perm = perm.transpose()
         auc_obs_mean_reordered = auc_obs_mean[perm.columns]
-        print(perm.columns)
         count_condition_met = pd.Series(index=perm.columns, dtype=int)
         for column in perm.columns:
-            print(column)
             if auc_obs_mean_reordered[column] > 0:
                 count_condition_met[column] = (
                     perm[column] > auc_obs_mean_reordered[column]
@@ -208,8 +240,8 @@ def get_permuation_p(kmmResFolder, groups, axisName, permFolder, permNum, plot=T
                 count_condition_met[column] = (
                     perm[column] < auc_obs_mean_reordered[column]
                 ).sum()
-
         permP[group] = count_condition_met / permNum
+
         if plot:
             heatmapData = pd.DataFrame()
             heatmapData["auc"] = auc_obs_mean
@@ -230,10 +262,12 @@ def get_permuation_p(kmmResFolder, groups, axisName, permFolder, permNum, plot=T
             inSig = heatmapData.loc[heatmapData["p"] < 0.05]
 
             plot = (
-                alt.Chart(heatmapData, title="AML")
+                alt.Chart(heatmapData, title=group)
                 .mark_rect()
                 .encode(
-                    x=alt.X("from").sort(list(kmmResult.axisName.values())),
+                    x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
+                        list(kmmResult.axisName.values())
+                    ),
                     y=alt.Y("to").sort(list(kmmResult.axisName.values())),
                     color=alt.Color(
                         "auc",
@@ -242,14 +276,15 @@ def get_permuation_p(kmmResFolder, groups, axisName, permFolder, permNum, plot=T
                         ),
                     ),
                 )
-                .properties(height=500, width=500)
             )
 
             sig = (
                 alt.Chart(inSig)
-                .mark_point(size=500, filled=False, shape="triangle-up")
+                .mark_text(filled=True, text="*")
                 .encode(
-                    x=alt.X("from").sort(list(kmmResult.axisName.values())),
+                    x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
+                        list(kmmResult.axisName.values())
+                    ),
                     y=alt.Y("to").sort(list(kmmResult.axisName.values())),
                     color=alt.value("black"),
                 )
@@ -259,17 +294,18 @@ def get_permuation_p(kmmResFolder, groups, axisName, permFolder, permNum, plot=T
                 alt.Chart(heatmapData)
                 .mark_text()
                 .encode(
-                    x=alt.X("from").sort(list(kmmResult.axisName.values())),
+                    x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
+                        list(kmmResult.axisName.values())
+                    ),
                     y=alt.Y("to").sort(list(kmmResult.axisName.values())),
                     color=alt.value("black"),
                     text="p",
                 )
             )
-            aml_plot = plot + sig
-            aml_plot.save(f"{permFolder}perm_{group}.html")
-            aml_text = plot + text
-            aml_text.save(f"{permFolder}perm_{group}_text.html")
-            break
+            perm_plot = plot + sig
+            perm_plot.save(f"{permFolder}perm_{group}.html")
+            perm_text = plot + text
+            perm_text.save(f"{permFolder}perm_{group}_text.html")
 
     return permP
 
@@ -286,7 +322,14 @@ def mel_permuation():
     #     groups=ICIgroups,
     #     axisName=mel_axisName,
     # )
-    get_permuation_p(kmmResFolder, ICIgroups, mel_axisName, permFolder, 1)
+    get_permuation_p(
+        kmmResFolder=kmmResFolder,
+        groups=ICIgroups,
+        axisName=mel_axisName,
+        permFolder=permFolder,
+        permNum=51,
+    )
 
 
-mel_permuation()
+tcae_vs_melano()
+plotPointDistribution()

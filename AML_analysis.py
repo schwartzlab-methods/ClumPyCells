@@ -2,9 +2,12 @@ import sys
 
 import altair as alt
 
+from ClumPyCell.Analysis.decisionTree import *
 from ClumPyCell.Analysis.markcorrResult import *
 from ClumPyCell.Analysis.metadata import *
+from ClumPyCell.Analysis.survivalAnalysis import *
 
+IMAGEFOLDER = HOMEDIR + "Result/images/AML/"
 sys.path.append(HOMEDIR + "altairThemes.py")
 
 if True:  # In order to bypass isort when saving
@@ -17,36 +20,57 @@ alt.themes.register("publishTheme", altairThemes.publishTheme)
 alt.themes.enable("publishTheme")
 
 
+def plot_images_cellType():
+    aml = AMLResult(sizeCorrection=True, intensity=False)
+    aml_metadata = AML_metadata()
+    auc, plts = aml.getAUC()
+    auc_plts = AMLResult.displayImages(plts, [["NBM", "AML"]])
+    auc_plts.save(IMAGEFOLDER + "NBMvsAML_cellType.html")
+    diff_plts = AMLResult.find_diff(
+        auc=auc, col1="AML", col2="NBM", axisName=aml.axisName
+    )
+    diff_plts.save(IMAGEFOLDER + "AML_NBM_diff_cellType.html")
+
+
 def plot_images(AMLvsNBM=True, MinMax=True, BlastPercentage=True):
     aml = AMLResult(sizeCorrection=True, intensity=True)
     aml_metadata = AML_metadata()
+    auc, plts = aml.getAUC()
     if AMLvsNBM:
-        auc, plts = aml.getAUC()
         auc_plts = AMLResult.displayImages(plts, [["NBM", "AML"]])
-        auc_plts.save(HOMEDIR + "/Result/images/NBMvsAML.html")
+        auc_plts.save(IMAGEFOLDER + "NBMvsAML.html")
         diff_plts = AMLResult.find_diff(
             auc=auc, col1="AML", col2="NBM", axisName=aml.axisName
         )
-        diff_plts.save(HOMEDIR + "/Result/images/AML_NBM_diff.html")
+        diff_plts.save(IMAGEFOLDER + "AML_NBM_diff.html")
     if MinMax:
-        id = auc["AML"].stack().idxmin()
-        print(id)
-        imageNumber = 1
-        if imageNumber > 36:
+        # Find the image with the highest and lowest AUC
+        id_min = auc["AML"].stack().idxmin()
+        print(f"min: {id_min}")
+        id_max = auc["AML"].stack().idxmax()
+        print(f"max: {id_max}")
+
+        min_imageNum = int(id_min[1].split("_")[1])
+        max_imageNum = int(id_max[1].split("_")[1])
+        min_types = id_min[0].split(" vs. ")
+        max_types = id_max[0].split(" vs. ")
+
+        print(min_types, max_types, min_imageNum, max_imageNum)
+        if min_imageNum > 36:
             dataFile = aml_metadata.nbm_file
         else:
             dataFile = aml_metadata.aml_file
+
         dataFile = pd.read_csv(dataFile)
         plotImage(
             dataFile,
             aml_metadata.colInfo,
-            imageName=imageNumber,
+            imageName=min_imageNum,
             area_colName="Area",
-            selected_cellTypes=["Tcells", "Adipocytes"],
-            saveName=HOMEDIR + "/Result/images/AML_min.svg",
+            selected_cellTypes=min_types,
+            saveName=IMAGEFOLDER + "AML_min.svg",
         )
-        imageNumber = 34
-        if imageNumber > 36:
+        if max_imageNum > 36:
             dataFile = aml_metadata.nbm_file
         else:
             dataFile = aml_metadata.aml_file
@@ -54,10 +78,10 @@ def plot_images(AMLvsNBM=True, MinMax=True, BlastPercentage=True):
         plotImage(
             dataFile,
             aml_metadata.colInfo,
-            imageName=imageNumber,
+            imageName=max_imageNum,
             area_colName="Area",
-            selected_cellTypes=["Bcells", "Adipocytes"],
-            saveName=HOMEDIR + "/Result/images/AML_max.svg",
+            selected_cellTypes=["Bcells", "Bcells"],
+            saveName=IMAGEFOLDER + "AML_max.svg",
         )
     if BlastPercentage:
         BlastPercentage_groups = aml_metadata.get_blast_percentage_split()
@@ -66,7 +90,7 @@ def plot_images(AMLvsNBM=True, MinMax=True, BlastPercentage=True):
         )
         auc, plots = blast_group_result.getAUC()
         auc_plts = blast_group_result.displayImages(plots, [["aml_high", "aml_low"]])
-        auc_plts.save(HOMEDIR + "/Result/images/blastpercentage.html")
+        auc_plts.save(IMAGEFOLDER + "blastpercentage.html")
         diff_plts = AMLResult.find_diff(
             auc=auc,
             col1="aml_high",
@@ -74,7 +98,7 @@ def plot_images(AMLvsNBM=True, MinMax=True, BlastPercentage=True):
             method="perm",
             axisName=blast_group_result.axisName,
         )
-        diff_plts.save(HOMEDIR + "/Result/images/blastPercentage_diff.html")
+        diff_plts.save(IMAGEFOLDER + "blastPercentage_diff.html")
 
 
 def permutation_result():
@@ -259,3 +283,14 @@ def plot_AML(imageNum):
     col_info = aml_meta.colInfo
     dataFile = pd.read_csv(HOMEDIR + "Data/output/Normal2.csv")
     plotImage(dataFile=dataFile, dataFile_colNames=col_info, imageName=1)
+
+
+def surv_result():
+    run_survival_analysis(intensity=True, saveFolder=HOMEDIR + "/Result/AML/survival/")
+
+
+def plot_decision_tree():
+    decision_tree(intensity=True, saveFolder=IMAGEFOLDER)
+
+
+surv_result()

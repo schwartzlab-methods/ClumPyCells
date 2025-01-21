@@ -6,7 +6,9 @@ import dtreeviz
 import numpy as np
 from bayes_opt import BayesianOptimization
 from sklearn.model_selection import cross_validate
-from sklearn.tree import DecisionTreeClassifier, export_graphviz
+from sklearn.tree import DecisionTreeClassifier
+
+import altairThemes as altthm
 
 from .markcorrResult import *
 from .metadata import *
@@ -159,8 +161,9 @@ def fit_decision_tree(X, y, feature_names, bo=False, saveFig=True, saveFolder=".
             feature_names=feature_names,
             class_names=["NBM", "AML"],
         )
-        plot = viz.view()
-        plot.save(os.path.join(saveFolder, "tree.svg"))
+        viz.view(orientation="LR", scale=0.8, fancy=True).save(
+            os.path.join(saveFolder, "tree.svg")
+        )
 
     return clf
 
