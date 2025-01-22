@@ -1,4 +1,4 @@
-# ClumPyCells: Spatial Correlation Analysis Toolbox for Spatial Omics Data 
+# ClumPyCells: Spatial Correlation Analysis Toolbox with Cell Size Correction for Spatial Omics Data 
 
 ClumPyCells is an open-source toolbox for spatial correlation analysis based on point processing methods. By addressing cell-size differences, ClumPyCells helps to avoid biases that arise from tissue heterogeneity. The tool package provides calculations for cell aggregations using mark correlation functions, as well as post-hoc analysis tools that summarize spatial features and provides proper visualizations. 
 
