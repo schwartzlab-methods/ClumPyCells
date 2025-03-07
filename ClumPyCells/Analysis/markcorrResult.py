@@ -393,31 +393,31 @@ class AMLResult(MarkcorrResult):
 
         if self.intensity:
             axisName = {
-                "Adipocytes": "Perilipin",
-                "B_cells": "CD20",
-                "HSC": "CD34",
-                "Erythroids": "ECAD",
-                "Ki67": "Ki67",
-                "MSC": "NGFR",
-                "Macrophages": "CD163",
-                "Megakaryocytes": "CD31",
-                "Monocytes": "CD68",
-                "Myeloids": "MPO",
-                "T_cells": "CD3",
+                "HSC": "CD34",  # Stem/Progenitor
+                "T_cells": "CD3",  # Lymphoid
+                "B_cells": "CD20",  # Lymphoid
+                "Myeloids": "MPO",  # Myeloid
+                "Monocytes": "CD68",  # Myeloid
+                "Erythroids": "ECAD",  # Erythroid/Megakaryocytic
+                "Megakaryocytes": "CD31",  # Erythroid/Megakaryocytic
+                "Adipocytes": "Perilipin",  # Stromal
+                "MSC": "NGFR",  # Stromal
+                "Macrophages": "CD163",  # Stromal
+                "Ki67": "Ki67",  # Ki67 (unspecified category)
             }
         else:
             axisName = {
-                "Adipocytes": "Adipocytes",
-                "B_cells": "B_cells",
-                "HSC": "HSC",
-                "Erythroids": "Erythroids",
-                "Ki67": "Ki67",
-                "MSC": "MSC",
-                "Macrophages": "Macrophages",
-                "Megakaryocytes": "Megakaryocytes",
-                "Monocytes": "Monocytes",
-                "Myeloids": "Myeloids",
-                "T_cells": "T_cells",
+                "HSC": "HSC",  # Stem/Progenitor
+                "T_cells": "T_cells",  # Lymphoid
+                "B_cells": "B_cells",  # Lymphoid
+                "Myeloids": "Myeloids",  # Myeloid
+                "Monocytes": "Monocytes",  # Myeloid
+                "Erythroids": "Erythroids",  # Erythroid/Megakaryocytic
+                "Megakaryocytes": "Megakaryocytes",  # Erythroid/Megakaryocytic
+                "Adipocytes": "Adipocytes",  # Stromal
+                "MSC": "MSC",  # Stromal
+                "Macrophages": "Macrophages",  # Stromal
+                "Ki67": "Ki67",  # Ki67 (unspecified category)
             }
         super().__init__(groups, resultFolder=resultFolder, axisName=axisName)
 
