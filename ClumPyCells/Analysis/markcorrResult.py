@@ -53,6 +53,7 @@ class MarkcorrResult:
         takeMean=True,
         plot=True,
         r_range=None,
+        min_nanPercentile=0.1,
     ):
         axisName = self.axisName
         tot_auc = {}
@@ -111,18 +112,28 @@ class MarkcorrResult:
         tot_plot = {}
         if plot:
             for groupName in self.groups:
+                min_nanNum = int(len(self.groups[groupName]) * min_nanPercentile)
+                value_counts = tot_auc[groupName].count(axis=1)
                 if takeMean:
                     auc_representation = tot_auc[groupName].mean(axis=1)
                 else:
                     auc_representation = tot_auc[groupName].median(axis=1)
+
+                auc_representation[value_counts < min_nanNum] = 0
+
                 heatmap_x, heatmap_y = MarkcorrResult.get_XY(
                     auc_representation, axisName
                 )
 
                 auc = pd.DataFrame(
-                    {"from": heatmap_x, "to": heatmap_y, "auc": auc_representation}
+                    {
+                        "from": heatmap_x,
+                        "to": heatmap_y,
+                        "auc": auc_representation,
+                        "count": value_counts,
+                    }
                 )
-
+                print(auc)
                 heatmap = (
                     alt.Chart(auc, title=groupName)
                     .mark_rect()
@@ -142,8 +153,19 @@ class MarkcorrResult:
                         ),
                     )
                 )
+                x_marks = (
+                    alt.Chart(auc[auc["count"] < min_nanNum])
+                    .mark_text(text="X", size=15, color="black")
+                    .encode(
+                        x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
+                            list(axisName.values())
+                        ),
+                        y=alt.Y("to").sort(list(axisName.values())),
+                    )
+                )
 
-                tot_plot[groupName] = heatmap
+                # Combine the heatmap and X markers
+                tot_plot[groupName] = heatmap + x_marks
         return tot_auc, tot_plot
 
     def plotCurve(self, imageNum, type1, type2):
@@ -393,17 +415,17 @@ class AMLResult(MarkcorrResult):
 
         if self.intensity:
             axisName = {
-                "HSC": "CD34",  # Stem/Progenitor
-                "T_cells": "CD3",  # Lymphoid
-                "B_cells": "CD20",  # Lymphoid
-                "Myeloids": "MPO",  # Myeloid
-                "Monocytes": "CD68",  # Myeloid
-                "Erythroids": "ECAD",  # Erythroid/Megakaryocytic
-                "Megakaryocytes": "CD31",  # Erythroid/Megakaryocytic
-                "Adipocytes": "Perilipin",  # Stromal
-                "MSC": "NGFR",  # Stromal
-                "Macrophages": "CD163",  # Stromal
-                "Ki67": "Ki67",  # Ki67 (unspecified category)
+                "Intensity_CD34": "CD34",  # Stem/Progenitor
+                "Intenstiy_CD3": "CD3",  # Lymphoid
+                "Intensity_CD20": "CD20",  # Lymphoid
+                "Intensity_MPO": "MPO",  # Myeloid
+                "Intensity_CD68": "CD68",  # Myeloid
+                "Intensity_ECAD": "ECAD",  # Erythroid/Megakaryocytic
+                "Intensity_CD31": "CD31",  # Erythroid/Megakaryocytic
+                "Intensity_Adipotcytes": "Perilipin",  # Stromal
+                "Intensity_NGFR": "NGFR",  # Stromal
+                "Intensity_CD163": "CD163",  # Stromal
+                "Intensity_Ki67": "Ki67",  # Ki67 (unspecified category)
             }
         else:
             axisName = {
