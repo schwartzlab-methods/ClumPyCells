@@ -32,6 +32,19 @@ class AML_metadata:
         self.aml_file = f"{HOMEDIR}Data/output/AML.csv"
         self.imageSize_x = 1056
         self.imageSize_y = 642
+        self.axisName = {
+            "HSC": "CD34",  # Stem/Progenitor
+            "T_cells": "CD3",  # Lymphoid
+            "B_cells": "CD20",  # Lymphoid
+            "Myeloids": "MPO",  # Myeloid
+            "Monocytes": "CD68",  # Myeloid
+            "Erythroids": "ECAD",  # Erythroid/Megakaryocytic
+            "Megakaryocytes": "CD31",  # Erythroid/Megakaryocytic
+            "Adipocytes": "Perilipin",  # Stromal
+            "MSC": "NGFR",  # Stromal
+            "Macrophages": "CD163",  # Stromal
+            "Ki67": "Ki67",  # Ki67 (unspecified category)
+        }
         self.cellTypes_antibody = {
             "Adipocytes": "Perilipin",
             "B_cells": "CD20",
