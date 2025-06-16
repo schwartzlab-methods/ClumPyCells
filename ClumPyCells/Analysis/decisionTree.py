@@ -5,6 +5,7 @@ import altair as alt
 import dtreeviz
 import numpy as np
 from bayes_opt import BayesianOptimization
+from sklearn.impute import SimpleImputer
 from sklearn.model_selection import cross_validate
 from sklearn.tree import DecisionTreeClassifier
 
@@ -115,8 +116,17 @@ def get_leaf_number(X, y, clf):
     return tot_stat
 
 
-def fit_decision_tree(X, y, feature_names, bo=False, saveFig=True, saveFolder="./"):
-    params = {"max_depth": 6, "max_features": 0.6109791839252615}
+def fit_decision_tree(
+    X, y, feature_names, bo=False, saveFig=True, saveFolder="./", impute=True
+):
+    params = {"max_depth": 4, "max_features": 0.6701}
+    if impute:
+        X = SimpleImputer(strategy="constant", fill_value=0).fit_transform(X)
+    else:
+        combined = np.hstack((X, y.reshape(-1, 1)))
+        mask = ~np.isnan(combined).any(axis=1)
+        X = X[mask]
+        y = y[mask]
     if bo:
 
         def cart_bo(max_depth, max_features):
@@ -150,6 +160,7 @@ def fit_decision_tree(X, y, feature_names, bo=False, saveFig=True, saveFolder=".
         max_features=params["max_features"],
         random_state=123,
     )
+
     clf = decision_tree_model.fit(X, y)
 
     if saveFig:
@@ -168,14 +179,27 @@ def fit_decision_tree(X, y, feature_names, bo=False, saveFig=True, saveFolder=".
     return clf
 
 
-def get_decision_tree_data(result, clinical=False, blastPercentage=False):
+def get_decision_tree_data(
+    result,
+    clinical=False,
+    blastPercentage=False,
+    removeAdipocytes=True,
+    simplifyNames=True,
+):
     data = result.getCombinedResult()
     if blastPercentage:
         data = combineBlastPercentage(data=data)
         data = data.drop(["Biopsy_number"], axis=1)
+    if removeAdipocytes:
+        data = data.loc[:, ~data.columns.str.contains("Intensity_Adipocytes")]
+
     data["y"] = data["imageNum"].apply(lambda x: 1 if x < 36 else 0)
     y = data["y"].values
     data = data.drop(["imageNum", "y"], axis=1)
+
+    if simplifyNames:
+        data.columns = data.columns.str.replace("Intensity_", "", regex=True)
+
     X = data.values
     feature_names = data.columns
     return X, y, feature_names
@@ -252,15 +276,20 @@ def decision_tree(intensity=True, saveFolder="./"):
     else:
         result = AMLResult(sizeCorrection=True, intensity=False)
         folder = os.path.join(saveFolder, "cellType/")
-    create_folder(folder)
 
     X, y, feature_names = get_decision_tree_data(
-        result, clinical=False, blastPercentage=False
+        result,
+        clinical=False,
+        blastPercentage=False,
+        removeAdipocytes=True,
+        simplifyNames=True,
     )
-
     clf = fit_decision_tree(
         X, y, feature_names, bo=False, saveFig=True, saveFolder=folder
     )
+    feature_importance = pd.Series(clf.feature_importances_, index=feature_names)
+    feature_importance = feature_importance.sort_values(ascending=False)
+    feature_importance.to_csv(os.path.join(folder, "feature_importance.csv"))
     view_decision_tree(X, y, clf, folder)
     view_node_stats(X, clf, folder)
     # get_leaf_number(X, y, clf)

@@ -162,7 +162,7 @@ def closePpairs(xx, yy, dia, rr, nguess, pp=None):
                             np.array([xx[j], yy[j]]),
                             np.array([pp_x[k], pp_y[k]]),
                         )
-                        d = np.linalg.norm(np.cross(d - p1, p1 - p3)) / np.linalg.norm(
+                        d = np.linalg.norm(np.cross(p2 - p1, p1 - p3)) / np.linalg.norm(
                             p2 - p1
                         )
                         if d < pp_d[k] / 2:

@@ -33,17 +33,17 @@ class AML_metadata:
         self.imageSize_x = 1056
         self.imageSize_y = 642
         self.axisName = {
-            "HSC": "CD34",  # Stem/Progenitor
-            "T_cells": "CD3",  # Lymphoid
-            "B_cells": "CD20",  # Lymphoid
-            "Myeloids": "MPO",  # Myeloid
-            "Monocytes": "CD68",  # Myeloid
-            "Erythroids": "ECAD",  # Erythroid/Megakaryocytic
-            "Megakaryocytes": "CD31",  # Erythroid/Megakaryocytic
-            "Adipocytes": "Perilipin",  # Stromal
-            "MSC": "NGFR",  # Stromal
-            "Macrophages": "CD163",  # Stromal
-            "Ki67": "Ki67",  # Ki67 (unspecified category)
+            "Intensity_CD34": "CD34",  # Stem/Progenitor
+            "Intensity_CD3": "CD3",  # Lymphoid
+            "Intensity_CD20": "CD20",  # Lymphoid
+            "Intensity_MPO": "MPO",  # Myeloid
+            "Intensity_CD68": "CD68",  # Myeloid
+            "Intensity_Erythroids": "ECAD",  # Erythroid/Megakaryocytic
+            "Intensity_CD31": "CD31",  # Erythroid/Megakaryocytic
+            "Intensity_Adipocytes": "Perilipin",  # Stromal
+            "Intensity_NGFR": "NGFR",  # Stromal
+            "Intensity_CD163": "CD163",  # Stromal
+            "Intensity_Ki67": "Ki67",  # Ki67 (unspecified category)
         }
         self.cellTypes_antibody = {
             "Adipocytes": "Perilipin",
@@ -231,7 +231,6 @@ def plotImage(
     plt.xlim((-5, x_range))
     plt.ylim((-5, y_range))
     image = dataFile.loc[dataFile[imageName_colName] == imageName]
-
     colors = np.array(
         [
             "#c82423",
@@ -276,5 +275,7 @@ def plotImage(
     ax.legend(handles=customeLines, loc="center left", bbox_to_anchor=(1, 0.5))
     if saveName:
         plt.savefig(saveName)
+        print(f"Image saved at: {saveName}")
+        plt.close()
     else:
         plt.show()

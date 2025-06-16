@@ -53,7 +53,7 @@ class MarkcorrResult:
         takeMean=True,
         plot=True,
         r_range=None,
-        min_nanPercentile=0.1,
+        min_nanPercentile=0.5,
     ):
         axisName = self.axisName
         tot_auc = {}
@@ -133,7 +133,6 @@ class MarkcorrResult:
                         "count": value_counts,
                     }
                 )
-                print(auc)
                 heatmap = (
                     alt.Chart(auc, title=groupName)
                     .mark_rect()
@@ -398,34 +397,53 @@ class AMLResult(MarkcorrResult):
         sizeCorrection: bool = False,
         intensity: bool = True,
         groups={"AML": range(36), "NBM": range(36, 51)},
+        resultFolder: str = None,
     ) -> None:
         self.intensity = intensity
-        if sizeCorrection:
-            if intensity:
-                resultFolder = HOMEDIR + "Result/AML/intensity_withSize/"
+        if resultFolder is None:
+            if sizeCorrection:
+                if intensity:
+                    resultFolder = os.path.join(
+                        HOMEDIR, "Result/AML/intensity_withSize/"
+                    )
+                else:
+                    resultFolder = os.path.join(
+                        HOMEDIR, "Result/AML/cellType_withSize/"
+                    )
             else:
-                resultFolder = HOMEDIR + "Result/AML/cellType_withSize/"
-        else:
-            if intensity:
-                resultFolder = HOMEDIR + "Result/AML/intensity_withoutSize/"
-            else:
-                logging.error(
-                    "cell type result without size correction has not been run yet"
-                )
+                if intensity:
+                    resultFolder = os.path.join(
+                        HOMEDIR, "Result/AML/intensity_withoutSize/"
+                    )
+                else:
+                    logging.error(
+                        "cell type result without size correction has not been run yet"
+                    )
 
         if self.intensity:
             axisName = {
                 "Intensity_CD34": "CD34",  # Stem/Progenitor
-                "Intenstiy_CD3": "CD3",  # Lymphoid
+                "Intensity_CD3": "CD3",  # Lymphoid
                 "Intensity_CD20": "CD20",  # Lymphoid
                 "Intensity_MPO": "MPO",  # Myeloid
                 "Intensity_CD68": "CD68",  # Myeloid
-                "Intensity_ECAD": "ECAD",  # Erythroid/Megakaryocytic
+                "Intensity_Erythroids": "ECAD",  # Erythroid/Megakaryocytic
                 "Intensity_CD31": "CD31",  # Erythroid/Megakaryocytic
-                "Intensity_Adipotcytes": "Perilipin",  # Stromal
+                "Intensity_Adipocytes": "Perilipin",  # Stromal
                 "Intensity_NGFR": "NGFR",  # Stromal
                 "Intensity_CD163": "CD163",  # Stromal
                 "Intensity_Ki67": "Ki67",  # Ki67 (unspecified category)
+                # "HSC": "CD34",  # Stem/Progenitor
+                # "T_cells": "CD3",  # Lymphoid
+                # "B_cells": "CD20",  # Lymphoid
+                # "Myeloids": "MPO",  # Myeloid
+                # "Monocytes": "CD68",  # Myeloid
+                # "Erythroids": "ECAD",  # Erythroid/Megakaryocytic
+                # "Megakaryocytes": "CD31",  # Erythroid/Megakaryocytic
+                # "Adipocytes": "Perilipin",  # Stromal
+                # "MSC": "NGFR",  # Stromal
+                # "Macrophages": "CD163",  # Stromal
+                # "Ki67": "Ki67",  # Ki67 (unspecified category)
             }
         else:
             axisName = {
@@ -453,9 +471,11 @@ class AMLResult(MarkcorrResult):
 class MelanomaResult(MarkcorrResult):
     def __init__(self, intensity: bool = False, groups={"All": range(72)}) -> None:
         if intensity:
-            resultFolder = HOMEDIR + "Result/Melanoma/Melanoma_intensity/"
+            resultFolder = os.path.join(HOMEDIR, "Result/Melanoma/Melanoma_intensity/")
         else:
-            resultFolder = HOMEDIR + "Result/Melanoma/Melanoma_cellType_more/"
+            resultFolder = os.path.join(
+                HOMEDIR, "Result/Melanoma/Melanoma_cellType_more/"
+            )
             axisName = {
                 "Cluster_Tc.ae": "Tc.ae",
                 "Cluster_Tc.naive": "Tc.naive",
