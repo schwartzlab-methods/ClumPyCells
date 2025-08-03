@@ -152,7 +152,6 @@ def fit_decision_tree(
         params_tuned = bo_result.max["params"]
         params_tuned["max_depth"] = round(params_tuned["max_depth"])
         params = params_tuned
-        print(params)
 
     decision_tree_model = DecisionTreeClassifier(
         criterion="entropy",
@@ -175,6 +174,17 @@ def fit_decision_tree(
         viz.view(orientation="LR", scale=0.8, fancy=True).save(
             os.path.join(saveFolder, "tree.svg")
         )
+
+        leaves = clf.apply(X)
+        leaf_counts = pd.Series(leaves).value_counts()
+        most_common_leaf = leaf_counts.idxmax()
+        sample_idx = np.where(leaves == most_common_leaf)[0][0]
+        print(f"Most common leaf: {most_common_leaf}, sample index: {sample_idx}")
+        # Visualize the path for the largest leaf
+
+        viz_path = os.path.join(saveFolder, "largest_leaf_path.svg")
+        viz.view(x=X[sample_idx], show_just_path=True).save(viz_path)
+        print(f"dtreeviz path for largest leaf saved to: {viz_path}")
 
     return clf
 

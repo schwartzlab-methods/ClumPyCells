@@ -233,7 +233,7 @@ def KM_median(data, col, plotCurve=True, saveFolder="./"):
         x_position = plt.xlim()[1] * 0.7
         y_position = 0.5
         kmf.plot_survival_function(ci_show=False, label=lab[1])
-        plt.text(x_position, y_position, f"log rank test: {res.p_value}")
+        plt.text(x_position, y_position, f"log rank test: {res.p_value:.2f}")
         plt.ylim(0, 1)
         plt.ylabel(r"est. probability of survival $\hat{S}(t)$")
         plt.xlabel("time $t$")
@@ -366,4 +366,24 @@ def run_survival_analysis(intensity=True, saveFolder="./"):
         num=10,
         by_patient=False,
         saveFolder=folder + "KM_by_ROI/",
+    )
+
+    KM_median_patients(
+        clinical_with_spatial,
+        "Intensity_Erythroids vs. Intensity_CD163",
+        plot_curve=True,
+        saveFolder=folder,
+    )
+    KM_median_patients(
+        clinical_with_spatial,
+        "Intensity_MPO vs. Intensity_MPO",
+        plot_curve=True,
+        saveFolder=folder,
+    )
+
+    KM_median_patients(
+        clinical_with_spatial,
+        "Intensity_CD31 vs. Intensity_CD163",
+        plot_curve=True,
+        saveFolder=folder,
     )
