@@ -10,6 +10,9 @@ import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
 
+# TODO: This does not allow the package to be imported without having this file
+# in the correct location (which will not be possible for users)
+# Make sure to resolve this issue before publishing!
 with open("config.json", "r") as file:
     config = json.load(file)
 HOMEDIR = config["HOMEDIR"]

@@ -11,13 +11,12 @@ ClumPyCells is publicly available at [GitHub](https://github.com/schwartzlab-met
 git clone git@github.com:schwartzlab-methods/ClumPyCells.git
 ```
 
+## 3. Installation
 
-## 3. Required Packages
-
-The following dependencies are required to run ClumPyCells. Install them using the `requirements.txt` file:
+ClumPyCells can be installed from the base directory through:
 
 ```bash
-pip install -r requirements.txt
+pip install .
 ```
 
 ## 4. General Workflow
@@ -115,6 +114,3 @@ Analysis Code: [Github](https://github.com/schwartzlab-methods/ClumPyCells_paper
 For more in-depth explanations of functions, please refer to the dedicated markdown files in the [documentation](https://github.com/schwartzlab-methods/ClumPyCells/tree/main/Documentation).
 
 ---
-
-
-
