@@ -39,3 +39,5 @@ Result/
 runPermutation.py
 CLPC/
 altairThemes.py
+ClumPyCells.egg-info/
+build/
