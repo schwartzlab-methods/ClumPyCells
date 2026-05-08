@@ -274,4 +274,4 @@ def plot_each_auc():
     )
 
 
-surv_result()
+plot_images(True, False, True)

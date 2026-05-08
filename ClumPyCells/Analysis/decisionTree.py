@@ -294,8 +294,9 @@ def decision_tree(intensity=True, saveFolder="./"):
         removeAdipocytes=True,
         simplifyNames=True,
     )
+
     clf = fit_decision_tree(
-        X, y, feature_names, bo=False, saveFig=True, saveFolder=folder
+        X, y, feature_names, bo=True, saveFig=True, saveFolder=folder
     )
     feature_importance = pd.Series(clf.feature_importances_, index=feature_names)
     feature_importance = feature_importance.sort_values(ascending=False)

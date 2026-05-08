@@ -14,13 +14,19 @@ class pointPattern:
             assert isinstance(W, window)
 
         # filter and leave only the points within the window
-        if W != None:
-            for i in range(0, len(x)):
-                if not W.inWindow(x[i], y[i]):
-                    x.pop(i)
-                    y.pop(i)
-                    if isinstance(marks, pd.DataFrame):
-                        marks = marks.drop(i, axis=0, inplace=True)
+        if W is not None:
+            x_arr = np.asarray(x)
+            y_arr = np.asarray(y)
+            keep = np.array(
+                [W.inWindow(xi, yi) for xi, yi in zip(x_arr, y_arr)], dtype=bool
+            )
+            if not keep.all():
+                x = list(x_arr[keep])
+                y = list(y_arr[keep])
+                if d is not None:
+                    d = list(np.asarray(d)[keep])
+                if isinstance(marks, pd.DataFrame):
+                    marks = marks.iloc[keep].reset_index(drop=True)
 
         self.x = np.array(x)
         self.y = np.array(y)

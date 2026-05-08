@@ -142,37 +142,98 @@ def paircount(nxy, x, y, rmaxi):
 
 
 def closePpairs(xx, yy, dia, rr, nguess, pp=None):
+    """Enumerate close pairs of points with cell-size correction.
+
+    The reported pairwise distance is
+
+        d2 = max(0, ||p_i - p_j|| - r_i - r_j - sum_k chord_k)
+
+    where ``r_i = dia_i / 2`` is the radius of point *i* (the point cells), and
+    the optional ``chord_k`` term accounts for *occluder* cells (``pp``)
+    intersecting the segment between ``p_i`` and ``p_j``: each occluder of
+    diameter ``D_k`` whose centre projects onto the segment with perpendicular
+    distance ``perp_k < D_k / 2`` removes a chord of length
+    ``2 * sqrt((D_k/2)^2 - perp_k^2)`` from the corrected distance.
+
+    The implementation is fully vectorised (NumPy) so it scales to thousands of
+    points without falling back to nested Python loops.
+    """
     n = len(xx)
     r2max = rr * rr
-    pp_x = pp.getX() if pp else []
-    pp_y = pp.getY() if pp else []
-    pp_d = pp.getD() if pp else []
-    jout, iout, dout, areaWt = [], [], [], []
+    xx = np.asarray(xx, dtype=float)
+    yy = np.asarray(yy, dtype=float)
+    dia = np.asarray(dia, dtype=float)
 
-    if n > 0 and nguess > 0:
-        for i in range(n):
-            xi, yi, di = xx[i], yy[i], dia[i]
-            for j in range(i + 1, n):
-                dx, dy = abs(xx[j] - xi), abs(yy[j] - yi)
-                if dx < rr and dy < rr:
-                    d2 = max(0, math.sqrt(dx * dx + dy * dy) - di / 2 - dia[j] / 2)
-                    for k in range(len(pp_x)):
-                        p1, p2, p3 = (
-                            np.array([xi, yi]),
-                            np.array([xx[j], yy[j]]),
-                            np.array([pp_x[k], pp_y[k]]),
-                        )
-                        d = np.linalg.norm(np.cross(p2 - p1, p1 - p3)) / np.linalg.norm(
-                            p2 - p1
-                        )
-                        if d < pp_d[k] / 2:
-                            dist_pass = 2 * math.sqrt(pp_d[k] ** 2 / 4 - d**2)
-                            if dist_pass < d2:
-                                d2 -= dist_pass
-                    if d2 * d2 <= r2max:
-                        jout.append(j + 1)
-                        iout.append(i + 1)
-                        dout.append(d2)
+    has_pp = pp is not None and len(pp.getX()) > 0
+    if has_pp:
+        pp_x = np.asarray(pp.getX(), dtype=float)
+        pp_y = np.asarray(pp.getY(), dtype=float)
+        pp_d = np.asarray(pp.getD(), dtype=float)
+
+    iout, jout, dout, areaWt = [], [], [], []
+
+    if n <= 1 or nguess <= 0:
+        return iout, jout, dout, areaWt
+
+    # 1) Bounding-box pre-filter on |dx|, |dy| < rr (matches the original
+    #    O(n^2) double loop semantics, including the *strict* inequality).
+    i_idx, j_idx = np.triu_indices(n, k=1)
+    dx = xx[j_idx] - xx[i_idx]
+    dy = yy[j_idx] - yy[i_idx]
+    box = (np.abs(dx) < rr) & (np.abs(dy) < rr)
+    if not box.any():
+        return iout, jout, dout, areaWt
+    i_idx = i_idx[box]
+    j_idx = j_idx[box]
+    dx = dx[box]
+    dy = dy[box]
+
+    # 2) Centre-to-centre distance, then deduct the radii of the two cells.
+    dist = np.sqrt(dx * dx + dy * dy)
+    d2 = np.maximum(0.0, dist - dia[i_idx] / 2.0 - dia[j_idx] / 2.0)
+
+    # 3) Subtract the chord swept inside every large occluder cell that the
+    #    segment passes through. Only occluders whose foot-of-perpendicular
+    #    actually lies on the segment count; otherwise the line meets the
+    #    occluder outside the segment and no distance is occluded.
+    if has_pp:
+        p1x = xx[i_idx]
+        p1y = yy[i_idx]
+        seg_dx = dx
+        seg_dy = dy
+        seg_len2 = seg_dx * seg_dx + seg_dy * seg_dy
+        # Iterate over occluders (typically much smaller than the pair count);
+        # this preserves the original sequential semantics where each chord is
+        # subtracted from the *running* corrected distance.
+        for k in range(pp_x.size):
+            r_pp = pp_d[k] / 2.0
+            if r_pp <= 0.0:
+                continue
+            ex = pp_x[k] - p1x
+            ey = pp_y[k] - p1y
+            # Parameter of the foot of perpendicular along the segment, in [0,1]
+            # when it lies on the segment.
+            t = (ex * seg_dx + ey * seg_dy) / seg_len2
+            on_seg = (t > 0.0) & (t < 1.0)
+            # Perpendicular distance from occluder centre to the infinite line.
+            cross = seg_dx * ey - seg_dy * ex
+            perp2 = (cross * cross) / seg_len2
+            intersects = on_seg & (perp2 < r_pp * r_pp)
+            if not intersects.any():
+                continue
+            chord = np.zeros_like(d2)
+            chord[intersects] = 2.0 * np.sqrt(
+                np.maximum(0.0, r_pp * r_pp - perp2[intersects])
+            )
+            d2 = np.maximum(0.0, d2 - chord)
+
+    # 4) Threshold on the *corrected* distance: keep pairs whose radial
+    #    separation (after size correction) lies within rmax.
+    keep = d2 * d2 <= r2max
+    if keep.any():
+        iout = (i_idx[keep] + 1).tolist()
+        jout = (j_idx[keep] + 1).tolist()
+        dout = d2[keep].tolist()
     return iout, jout, dout, areaWt
 
 

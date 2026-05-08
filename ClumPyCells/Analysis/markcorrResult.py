@@ -1,6 +1,7 @@
 import itertools
 import logging
 import sys
+from typing import Optional
 
 import altair as alt
 import numpy as np
@@ -57,6 +58,7 @@ class MarkcorrResult:
     ):
         axisName = self.axisName
         tot_auc = {}
+        max_data = min_data = None
         # find max and min data based on the whole dataset
         if norm == "min_mid_max":
             combinedResult = pd.DataFrame()
@@ -71,6 +73,10 @@ class MarkcorrResult:
             combinedResult = combinedResult.to_numpy().flatten()
             combinedResult = combinedResult[combinedResult != 1]
             max_data, min_data = self.find_max_min(combinedResult)
+        elif norm != "log":
+            raise ValueError(
+                "Only min_mid_max and log are supported for the norm entry"
+            )
 
         # Generate all possible combinations of axis values
         axis_keys = list(axisName.keys())
@@ -79,7 +85,8 @@ class MarkcorrResult:
 
         for groupName in self.groups:
             auc = pd.DataFrame(index=formatted_combinations)
-            r = pd.read_csv(f"{self.resultFolder}image_{i}/r.csv").drop(
+            first_image = self.groups[groupName][0]
+            r = pd.read_csv(f"{self.resultFolder}image_{first_image}/r.csv").drop(
                 ["Unnamed: 0"], axis=1
             )
             for i in self.groups[groupName]:
@@ -99,11 +106,7 @@ class MarkcorrResult:
                     isoResult = self.min_mid_max_normalization(
                         isoResult, max_data, 1, min_data
                     )
-                else:
-                    logging.error(
-                        "Only min_mid_max and log are supported for the norm entry"
-                    )
-                auc["image_%d" % i] = isoResult.sum()
+                auc[f"image_{i}"] = isoResult.sum()
 
             auc = auc[auc != 0]
             tot_auc[groupName] = auc
@@ -249,7 +252,7 @@ class MarkcorrResult:
     def getBoxPlot(self, auc: dict, cols, axisName: dict = {}):
         combined_auc = pd.DataFrame()
         for group in cols:
-            group_auc = auc.get(group)
+            group_auc = auc[group]
             auc_t = group_auc.transpose()
             auc_t = auc_t.melt(var_name="pair", value_name="auc")
             auc_t["group"] = group
@@ -296,7 +299,19 @@ class MarkcorrResult:
         return combinedPlot
 
     @staticmethod
-    def find_diff(auc: dict, col1, col2, takeMean=True, method="MW", axisName=None):
+    def find_diff(
+        auc: dict, col1, col2, takeMean=True, method="MW", axisName=None, saveCsv=None
+    ):
+        if axisName is None:
+            pair_names = list(auc[col1].index)
+            marks = sorted(
+                {
+                    mark
+                    for pair_name in pair_names
+                    for mark in str(pair_name).split(" vs. ")
+                }
+            )
+            axisName = {mark: mark for mark in marks}
         auc1_t = auc[col1].transpose()
         auc2_t = auc[col2].transpose()
         MWresult = {}
@@ -304,22 +319,20 @@ class MarkcorrResult:
         if method == "MW":
             # perform mannwhitney U test
             for col in auc1_t:
-                _, pValue = ss.mannwhitneyu(
-                    auc1_t.get(col, pd.Series([0])),
-                    auc2_t.get(col, pd.Series([0])),
-                    nan_policy="omit",
-                )
+                sample1 = auc1_t.get(col, pd.Series([0])).dropna()
+                sample2 = auc2_t.get(col, pd.Series([0])).dropna()
+                _, pValue = ss.mannwhitneyu(sample1, sample2)
                 MWresult[col] = pValue
 
         elif method == "perm":
             # perform fisher-pitman permuation test
             for col in auc1_t:
-                pValue, _ = two_sample(
+                pValue = two_sample(
                     auc1_t.get(col, pd.Series([0])).dropna(),
                     auc2_t.get(col, pd.Series([0])).dropna(),
                     reps=10000,
                     alternative="two-sided",
-                )
+                )[0]
                 MWresult[col] = pValue
         # Generate all possible combinations of axis values
         axis_keys = list(axisName.keys())
@@ -349,7 +362,9 @@ class MarkcorrResult:
         diffChart["diff"] = diff
         diffChart["GT0"] = diffChart["diff"] > 0
         sig = diffChart.loc[diffChart["adjusted"] < 0.05]
-        diffChart.to_csv(HOMEDIR + "/Result/Test/diffchart.csv")
+        if saveCsv:
+            os.makedirs(os.path.dirname(os.path.abspath(saveCsv)), exist_ok=True)
+            diffChart.to_csv(saveCsv)
 
         heatmap_shape = (
             alt.Chart(diffChart)
@@ -397,7 +412,7 @@ class AMLResult(MarkcorrResult):
         sizeCorrection: bool = False,
         intensity: bool = True,
         groups={"AML": range(36), "NBM": range(36, 51)},
-        resultFolder: str = None,
+        resultFolder: Optional[str] = None,
     ) -> None:
         self.intensity = intensity
         if resultFolder is None:
@@ -417,6 +432,9 @@ class AMLResult(MarkcorrResult):
                     )
                 else:
                     logging.error(
+                        "cell type result without size correction has not been run yet"
+                    )
+                    raise ValueError(
                         "cell type result without size correction has not been run yet"
                     )
 
@@ -461,9 +479,20 @@ class AMLResult(MarkcorrResult):
             }
         super().__init__(groups, resultFolder=resultFolder, axisName=axisName)
 
-    def getAUC(self, norm: str = "min_mid_max", plot=True, r_range=None, takeMean=True):
+    def getAUC(
+        self,
+        norm: str = "min_mid_max",
+        takeMean=True,
+        plot=True,
+        r_range=None,
+        min_nanPercentile=0.5,
+    ):
         auc, plot = super().getAUC(
-            norm=norm, takeMean=takeMean, plot=plot, r_range=r_range
+            norm=norm,
+            takeMean=takeMean,
+            plot=plot,
+            r_range=r_range,
+            min_nanPercentile=min_nanPercentile,
         )
         return auc, plot
 
@@ -472,6 +501,18 @@ class MelanomaResult(MarkcorrResult):
     def __init__(self, intensity: bool = False, groups={"All": range(72)}) -> None:
         if intensity:
             resultFolder = os.path.join(HOMEDIR, "Result/Melanoma/Melanoma_intensity/")
+            axisName = {
+                "Cluster_Tc.ae": "Tc.ae",
+                "Cluster_Tc.naive": "Tc.naive",
+                "Cluster_Th.naive": "Th.naive",
+                "Cluster_B": "B",
+                "Cluster_Th.ae": "Th.ae",
+                "Cluster_Treg": "Treg",
+                "Cluster_CD31": "CD31",
+                "Cluster_melano": "melano",
+                "Cluster_macro.mono": "macro.mono",
+                "Cluster_others": "others",
+            }
         else:
             resultFolder = os.path.join(
                 HOMEDIR, "Result/Melanoma/Melanoma_cellType_more/"
@@ -490,10 +531,23 @@ class MelanomaResult(MarkcorrResult):
             }
         super().__init__(groups=groups, resultFolder=resultFolder, axisName=axisName)
 
-    def getAUC(self, norm: str = "min_mid_max", plot=True, r_range=None, takeMean=True):
+    def getAUC(
+        self,
+        norm: str = "min_mid_max",
+        takeMean=True,
+        plot=True,
+        r_range=None,
+        min_nanPercentile=0.5,
+    ):
         axisName = self.axisName
-        return super().getAUC(norm=norm, takeMean=takeMean, plot=plot, r_range=r_range)
+        return super().getAUC(
+            norm=norm,
+            takeMean=takeMean,
+            plot=plot,
+            r_range=r_range,
+            min_nanPercentile=min_nanPercentile,
+        )
 
-    def getBoxPlot(self, auc: dict, cols):
+    def getBoxPlot(self, auc: dict, cols, axisName: dict = {}):
         axisName = self.axisName
         return super().getBoxPlot(auc, cols, axisName)

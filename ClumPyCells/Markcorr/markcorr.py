@@ -8,6 +8,7 @@ from itertools import combinations
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from tqdm.auto import tqdm
 
 from .breakpts import *
 from .closepairs import *
@@ -280,6 +281,8 @@ def markcorr(
     remove_zeros=True,
     saveCache=True,
     pp=None,
+    show_progress=False,
+    progress_desc="markcorr pairs",
 ):
     # obtain point pattern values
     markx = X.getMarks()
@@ -362,178 +365,179 @@ def markcorr(
         J = close["j"]
         XI = pointPattern(close["xi"], close["yi"], d, W)
 
-    for coli in markx:
-        for colj in markx:
-            name = f"{coli} vs. {colj}"
+    pair_iter = [(coli, colj) for coli in markx for colj in markx]
+    if show_progress:
+        pair_iter = tqdm(pair_iter, desc=progress_desc, unit="pair", leave=False)
+    for coli, colj in pair_iter:
+        name = f"{coli} vs. {colj}"
+        # Skip if the result is cached
+        if os.path.exists(f"{savefolder}{name}.pkl"):
+            continue
 
-            # Skip if the result is cached
-            if os.path.exists(f"{savefolder}{name}.pkl"):
-                continue
+        result = []
+        mari = markx[coli].to_numpy()
+        marj = markx[colj].to_numpy()
 
-            result = []
-            mari = markx[coli].to_numpy()
-            marj = markx[colj].to_numpy()
+        Ef = 0
+        # Denominator
+        Ef = np.mean(np.multiply(markx[coli], weights)) * np.mean(
+            np.multiply(markx[colj], weights)
+        )
 
-            Ef = 0
-            # Denominator
-            Ef = np.mean(np.multiply(markx[coli], weights)) * np.mean(
-                np.multiply(markx[colj], weights)
+        # check validity of denominator
+        if Ef == 0:
+            logging.error(
+                "Cannot normalise the mark correlation; the denominator is zero"
+            )
+            result.append([1] * len(r))
+            result.append([1] * len(r))
+
+        elif Ef < 0:
+            logging.warning(
+                "Problem when normalising the mark correlation: the denominator is negative"
             )
 
-            # check validity of denominator
-            if Ef == 0:
-                logging.error(
-                    "Cannot normalise the mark correlation; the denominator is zero"
-                )
-                result.append([1] * len(r))
-                result.append([1] * len(r))
+        else:
+            if remove_zeros:
+                # remove lines with all zeros
+                if coli != colj:
+                    markpairs = markx[[coli, colj]]
+                    validIndex = ~(markpairs[[coli, colj]] == 0).all(axis=1)
+                    markpairs = markpairs[validIndex]
+                    dpairs = d[validIndex]
+                    mari = mari[validIndex]
+                    marj = marj[validIndex]
+                    xpairs = X.x[validIndex]
+                    ypairs = X.y[validIndex]
+                    X_temp = pointPattern(xpairs, ypairs, dpairs, W)
 
-            elif Ef < 0:
-                logging.warning(
-                    "Problem when normalising the mark correlation: the denominator is negative"
-                )
+                else:
+                    validIndex = markx[coli] != 0
+                    markpairs = markx.loc[validIndex]
+                    dpairs = d[validIndex]
+                    mari = mari[validIndex]
+                    marj = marj[validIndex]
+                    xpairs = X.x[validIndex]
+                    ypairs = X.y[validIndex]
+                    X_temp = pointPattern(xpairs, ypairs, dpairs, W)
+
+                if X_temp.n < 10 or np.mean(mari) == 0 or np.mean(marj) == 0:
+                    result.append([1] * len(r))
+                    result.append([1] * len(r))
+                    name = coli + " vs. " + colj
+                    funs[name] = result
+
+                    if saveImage == True:
+                        fig = plt.figure()
+                        plt.plot(r, result[0], label="iso")
+                        plt.plot(r, result[1], label="trans")
+                        plt.plot(r, [1] * len(r), "--")
+                        plt.xlabel("r")
+                        plt.ylabel("kmm(r)")
+                        plt.title(name)
+                        plt.legend()
+                        name = savefolder + coli + "_" + colj + ".png"
+                        plt.savefig(fname=name)
+                        plt.close("all")
+                    continue
+
+                else:
+                    # find close pairs of points
+                    close = closepairs(X_temp, rmax, dpairs, pp=pp)
+                    dIJ = close["d"]
+                    I = close["i"]
+                    J = close["j"]
+                    XI = pointPattern(close["xi"], close["yi"], d, W)
 
             else:
-                if remove_zeros:
-                    # remove lines with all zeros
-                    if coli != colj:
-                        markpairs = markx[[coli, colj]]
-                        validIndex = ~(markpairs[[coli, colj]] == 0).all(axis=1)
-                        markpairs = markpairs[validIndex]
-                        dpairs = d[validIndex]
-                        mari = mari[validIndex]
-                        marj = marj[validIndex]
-                        xpairs = X.x[validIndex]
-                        ypairs = X.y[validIndex]
-                        X_temp = pointPattern(xpairs, ypairs, dpairs, W)
-
-                    else:
-                        validIndex = markx[coli] != 0
-                        markpairs = markx.loc[validIndex]
-                        dpairs = d[validIndex]
-                        mari = mari[validIndex]
-                        marj = marj[validIndex]
-                        xpairs = X.x[validIndex]
-                        ypairs = X.y[validIndex]
-                        X_temp = pointPattern(xpairs, ypairs, dpairs, W)
-
-                    if X_temp.n < 10 or np.mean(mari) == 0 or np.mean(marj) == 0:
+                nonZeroPoints = np.min(
+                    [np.count_nonzero(markx[coli]), np.count_nonzero(markx[colj])]
+                )
+                if nonZeroPoints < 10:
+                    if "isotropic" in correction:
                         result.append([1] * len(r))
+                    if "translate" in correction:
                         result.append([1] * len(r))
-                        name = coli + " vs. " + colj
-                        funs[name] = result
+                    name = coli + " vs. " + colj
+                    funs[name] = result
 
-                        if saveImage == True:
-                            fig = plt.figure()
+                    if saveImage == True:
+                        fig = plt.figure()
+                        if len(correction) == 1:
+                            if "isotropic" in correction:
+                                plt.plot(r, result[0], label="iso")
+                            else:
+                                plt.plot(r, result[0], label="trans")
+                        elif len(correction) == 2:
                             plt.plot(r, result[0], label="iso")
                             plt.plot(r, result[1], label="trans")
-                            plt.plot(r, [1] * len(r), "--")
-                            plt.xlabel("r")
-                            plt.ylabel("kmm(r)")
-                            plt.title(name)
-                            plt.legend()
-                            name = savefolder + coli + "_" + colj + ".png"
-                            plt.savefig(fname=name)
-                            plt.close("all")
-                        continue
+                        else:
+                            plt.plot(r, result[0])
+                        plt.plot(r, [1] * len(r), "--")
+                        plt.xlabel("r")
+                        plt.ylabel("kmm(r)")
+                        plt.title(name)
+                        plt.legend()
+                        name = savefolder + coli + "_" + colj + ".png"
+                        plt.savefig(fname=name)
+                        plt.close("all")
+                    continue
+            # apply f to marks of close pairs of points
+            mI = [mari[i - 1] for i in I]
+            mJ = [marj[j - 1] for j in J]
 
-                    else:
-                        # find close pairs of points
-                        close = closepairs(X_temp, rmax, dpairs, pp=pp)
-                        dIJ = close["d"]
-                        I = close["i"]
-                        J = close["j"]
-                        XI = pointPattern(close["xi"], close["yi"], d, W)
+            ff = np.multiply(mI, mJ)
+            # ff = [mI[i] * mJ[i] for i in range(len(mI))]
 
-                else:
-                    nonZeroPoints = np.min(
-                        [np.count_nonzero(markx[coli]), np.count_nonzero(markx[colj])]
-                    )
-                    if nonZeroPoints < 10:
-                        if "isotropic" in correction:
-                            result.append([1] * len(r))
-                        if "translate" in correction:
-                            result.append([1] * len(r))
-                        name = coli + " vs. " + colj
-                        funs[name] = result
+            # Compute estimates
+            if "none" in correction:
+                # uncorrected estimate
+                edgewt = [1] * len(dIJ)
+                # get smoothed estimate of mark covariance
+                Mnone = sewsmod(dIJ, ff, edgewt, Ef, r, method[0])
+                result.append(Mnone)
 
-                        if saveImage == True:
-                            fig = plt.figure()
-                            if len(correction) == 1:
-                                if "isotropic" in correction:
-                                    plt.plot(r, result[0], label="iso")
-                                else:
-                                    plt.plot(r, result[0], label="trans")
-                            elif len(correction) == 2:
-                                plt.plot(r, result[0], label="iso")
-                                plt.plot(r, result[1], label="trans")
-                            else:
-                                plt.plot(r, result[0])
-                            plt.plot(r, [1] * len(r), "--")
-                            plt.xlabel("r")
-                            plt.ylabel("kmm(r)")
-                            plt.title(name)
-                            plt.legend()
-                            name = savefolder + coli + "_" + colj + ".png"
-                            plt.savefig(fname=name)
-                            plt.close("all")
-                        continue
-                # apply f to marks of close pairs of points
-                mI = [mari[i - 1] for i in I]
-                mJ = [marj[j - 1] for j in J]
+            if "translate" in correction:
+                XJ = pointPattern(close["xj"], close["yj"], W)
+                edgewt = edgetrans(XI, XJ, paired=True)
+                # get smoothed estimate of mark covariance
+                Mtrans = sewsmod(dIJ, ff, edgewt, Ef, r, method[0])
+                result.append(Mtrans)
 
-                ff = np.multiply(mI, mJ)
-                # ff = [mI[i] * mJ[i] for i in range(len(mI))]
+            if "isotropic" in correction:
+                # Ripley isotropic correction
+                edgewt = edgecorrection(XI, np.array(dIJ).reshape(len(dIJ), 1))
+                # get smoothed estimate of mark covariance
+                Miso = sewsmod(dIJ, ff, edgewt, Ef, r, method[0])
+                result.append(Miso)
 
-                # Compute estimates
-                if "none" in correction:
-                    # uncorrected estimate
-                    edgewt = [1] * len(dIJ)
-                    # get smoothed estimate of mark covariance
-                    Mnone = sewsmod(dIJ, ff, edgewt, Ef, r, method[0])
-                    result.append(Mnone)
+        if saveCache:
+            f = open(f"{savefolder}{name}.pkl", "wb")
+            pickle.dump(result, f)
+            f.close()
+        else:
+            funs[name] = result
 
-                if "translate" in correction:
-                    XJ = pointPattern(close["xj"], close["yj"], W)
-                    edgewt = edgetrans(XI, XJ, paired=True)
-                    # get smoothed estimate of mark covariance
-                    Mtrans = sewsmod(dIJ, ff, edgewt, Ef, r, method[0])
-                    result.append(Mtrans)
-
+        if saveImage == True:
+            fig = plt.figure()
+            if len(correction) == 1:
                 if "isotropic" in correction:
-                    # Ripley isotropic correction
-                    edgewt = edgecorrection(XI, np.array(dIJ).reshape(len(dIJ), 1))
-                    # get smoothed estimate of mark covariance
-                    Miso = sewsmod(dIJ, ff, edgewt, Ef, r, method[0])
-                    result.append(Miso)
-
-            if saveCache:
-                f = open(f"{savefolder}{name}.pkl", "wb")
-                pickle.dump(result, f)
-                f.close()
-            else:
-                funs[name] = result
-
-            if saveImage == True:
-                fig = plt.figure()
-                if len(correction) == 1:
-                    if "isotropic" in correction:
-                        plt.plot(r, result[0], label="iso")
-                    else:
-                        plt.plot(r, result[0], label="trans")
-                elif len(correction) == 2:
                     plt.plot(r, result[0], label="iso")
-                    plt.plot(r, result[1], label="trans")
                 else:
-                    plt.plot(r, result[0])
-                plt.plot(r, [1] * len(r), "--")
-                plt.xlabel("r")
-                plt.ylabel("kmm(r)")
-                plt.title(name)
-                plt.legend()
-                name = savefolder + coli + "_" + colj + ".png"
-                plt.savefig(fname=name)
-                plt.close("all")
+                    plt.plot(r, result[0], label="trans")
+            elif len(correction) == 2:
+                plt.plot(r, result[0], label="iso")
+                plt.plot(r, result[1], label="trans")
+            else:
+                plt.plot(r, result[0])
+            plt.plot(r, [1] * len(r), "--")
+            plt.xlabel("r")
+            plt.ylabel("kmm(r)")
+            plt.title(name)
+            plt.legend()
+            name = savefolder + coli + "_" + colj + ".png"
+            plt.savefig(fname=name)
+            plt.close("all")
 
     if saveCache:
         funs = {}

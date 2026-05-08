@@ -10,11 +10,40 @@ import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
 
-with open("config.json", "r") as file:
-    config = json.load(file)
-HOMEDIR = config["HOMEDIR"]
 
-sys.path.append(HOMEDIR + "ClumPyCell/Analysis/altairThemes.py")
+def _load_homedir():
+    # Search order: env var, current working dir, package parent dir
+    candidates = []
+    env = os.environ.get("CLUMPYCELLS_CONFIG")
+    if env:
+        candidates.append(env)
+    candidates.append(os.path.join(os.getcwd(), "config.json"))
+    candidates.append(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            os.pardir,
+            os.pardir,
+            "config.json",
+        )
+    )
+    for path in candidates:
+        if path and os.path.isfile(path):
+            with open(path, "r") as f:
+                cfg = json.load(f)
+            return cfg.get("HOMEDIR", ""), path
+    # Fall back to repo root inferred from package location
+    pkg_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
+    )
+    return pkg_root + os.sep, None
+
+
+HOMEDIR, _CONFIG_PATH = _load_homedir()
+
+# Make sibling altair theme module importable regardless of cwd
+_THEME_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THEME_DIR not in sys.path:
+    sys.path.append(_THEME_DIR)
 
 if True:  # In order to bypass isort when saving
     import altairThemes

@@ -249,6 +249,7 @@ def KM_median_patients(data, col, plot_curve=True, saveFolder="./"):
     # group by patient
     data = data.groupby(by=["Biopsy Number"]).mean()
     data["survival_status"] = data["survival_status"].apply(bool)
+    data.to_csv(saveFolder + "clinical_with_spatial_patient.csv", index=False)
     return KM_median(data=data, col=col, plotCurve=plot_curve, saveFolder=saveFolder)
 
 
@@ -312,6 +313,7 @@ def run_survival_analysis(intensity=True, saveFolder="./"):
         clinical=clinical_data, auc_t=intensity_auc["AML"].transpose()[idd_cols]
     )
 
+    clinical_with_spatial.to_csv(folder + "clinical_with_spatial.csv", index=False)
     cols_by_hazard, sigPair, bh_results_df = select_surv_feature(
         clinical_with_spatial, savefolder=folder, save_csv="sig_features_bh.csv"
     )

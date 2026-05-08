@@ -66,8 +66,9 @@ def density(
         logging.error("'weights' must not be negative")
         sys.exit(2)
     wsum = np.sum(weights)
-    if wsum != 1:
-        logging.warning("sum(weights) != 1  -- will not get true density")
+    # Note: caller-driven weighted KDE; sums of weights are not normalized to 1
+    # because the result is a numerator/denominator in sewsmod. The original
+    # warning here was noisy and not actionable.
 
     n_user = n
     n = max(n, 512)
