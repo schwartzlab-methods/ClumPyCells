@@ -137,6 +137,9 @@ def analyzeImage(
 
     # Create point pattern based on filtered image Data
     imageData = imageData[imageData["ImageNum"] == imageNum]
+    if imageData.empty:
+        logging.warning(f"Skipping image_{imageNum}: no rows found in input table")
+        return
     x = imageData["x"].tolist()
     y = imageData["y"].tolist()
     W = window(xrange=xrange, yrange=yrange)
@@ -201,6 +204,7 @@ def runSpatial(
     area_col="Area",
     mark_columns=None,
     chunksize=10000,
+    image_numbers=None,
 ):
     """Run mark cross-correlation on every image in ``csv_path``.
 
@@ -214,6 +218,14 @@ def runSpatial(
         Display a tqdm progress bar over images. Disable when running in a
         non-interactive context such as a notebook export or test suite.
     """
+    if len(xrange) != 2 or len(yrange) != 2:
+        raise ValueError("xrange and yrange must each contain [min, max]")
+    if float(xrange[1]) <= float(xrange[0]) or float(yrange[1]) <= float(yrange[0]):
+        raise ValueError(
+            f"Invalid window: xrange={xrange}, yrange={yrange}. "
+            "Ensure max > min for both axes."
+        )
+
     csv_data = read_cell_table(
         csv_path,
         x_col=x_col,
@@ -236,8 +248,19 @@ def runSpatial(
         ] and not pd.api.types.is_integer_dtype(csv_data[column]):
             csv_data[column] = csv_data[column].astype("category")
 
-    # Get unique image numbers
-    image_numbers = list(csv_data["ImageNum"].unique())
+    # Get unique image numbers, optionally restricted for HPC array jobs.
+    available_images = list(csv_data["ImageNum"].unique())
+    if image_numbers is None:
+        image_numbers = available_images
+    else:
+        requested = {str(image_num) for image_num in image_numbers}
+        image_numbers = [
+            image_num for image_num in available_images if str(image_num) in requested
+        ]
+        if not image_numbers:
+            raise ValueError(
+                "None of the requested image IDs were found in the input table"
+            )
     total = len(image_numbers)
 
     # Use multithreading to process each image
@@ -261,7 +284,13 @@ def runSpatial(
         results = []
         for done_count, fut in enumerate(iterator, 1):
             image_num = future_to_image[fut]
-            results.append(fut.result())
+            try:
+                results.append(fut.result())
+            except Exception as exc:
+                raise RuntimeError(
+                    f"markcorr failed for image_{image_num} with window "
+                    f"xrange={xrange}, yrange={yrange}: {exc}"
+                ) from exc
             if progress_callback is not None:
                 try:
                     progress_callback(done_count, total, image_num)

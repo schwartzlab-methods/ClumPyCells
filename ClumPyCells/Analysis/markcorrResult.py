@@ -140,10 +140,25 @@ class MarkcorrResult:
                     alt.Chart(auc, title=groupName)
                     .mark_rect()
                     .encode(
-                        x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
-                            list(axisName.values())
-                        ),
-                        y=alt.Y("to").sort(list(axisName.values())),
+                        x=alt.X(
+                            "from",
+                            axis=alt.Axis(
+                                labelAngle=-45,
+                                labelOverlap=False,
+                                labelLimit=1000,
+                                title="From mark",
+                            ),
+                            scale=alt.Scale(paddingInner=0, paddingOuter=0),
+                        ).sort(list(axisName.values())),
+                        y=alt.Y(
+                            "to",
+                            axis=alt.Axis(
+                                labelOverlap=False,
+                                labelLimit=1000,
+                                title="To mark",
+                            ),
+                            scale=alt.Scale(paddingInner=0, paddingOuter=0),
+                        ).sort(list(axisName.values())),
                         color=alt.Color(
                             "auc",
                             scale=alt.Scale(
@@ -159,15 +174,34 @@ class MarkcorrResult:
                     alt.Chart(auc[auc["count"] < min_nanNum])
                     .mark_text(text="X", size=15, color="black")
                     .encode(
-                        x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
-                            list(axisName.values())
-                        ),
-                        y=alt.Y("to").sort(list(axisName.values())),
+                        x=alt.X(
+                            "from",
+                            axis=alt.Axis(
+                                labelAngle=-45,
+                                labelOverlap=False,
+                                labelLimit=1000,
+                                title="From mark",
+                            ),
+                        ).sort(list(axisName.values())),
+                        y=alt.Y(
+                            "to",
+                            axis=alt.Axis(
+                                labelOverlap=False,
+                                labelLimit=1000,
+                                title="To mark",
+                            ),
+                        ).sort(list(axisName.values())),
+                        tooltip=[
+                            alt.Tooltip("count:Q", title="Valid image count"),
+                        ],
                     )
                 )
 
                 # Combine the heatmap and X markers
-                tot_plot[groupName] = heatmap + x_marks
+                tot_plot[groupName] = (heatmap + x_marks).properties(
+                    width=alt.Step(30),
+                    height=alt.Step(30),
+                )
         return tot_auc, tot_plot
 
     def plotCurve(self, imageNum, type1, type2):
@@ -370,10 +404,23 @@ class MarkcorrResult:
             alt.Chart(diffChart)
             .mark_point(size=200, filled=True)
             .encode(
-                x=alt.X("from", axis=alt.Axis(labelAngle=-45)).sort(
-                    list(axisName.values())
-                ),
-                y=alt.Y("to").sort(list(axisName.values())),
+                x=alt.X(
+                    "from",
+                    axis=alt.Axis(
+                        labelAngle=-45,
+                        labelOverlap=False,
+                        labelLimit=1000,
+                        title="From mark",
+                    ),
+                ).sort(list(axisName.values())),
+                y=alt.Y(
+                    "to",
+                    axis=alt.Axis(
+                        labelOverlap=False,
+                        labelLimit=1000,
+                        title="To mark",
+                    ),
+                ).sort(list(axisName.values())),
                 color=alt.Color(
                     "diff",
                     scale=alt.Scale(
@@ -395,13 +442,27 @@ class MarkcorrResult:
                 dy=3,
             )
             .encode(
-                x=alt.X("from").sort(list(axisName.values())),
-                y=alt.Y("to").sort(list(axisName.values())),
+                x=alt.X(
+                    "from",
+                    axis=alt.Axis(
+                        labelAngle=-45,
+                        labelOverlap=False,
+                        labelLimit=1000,
+                        title="From mark",
+                    ),
+                ).sort(list(axisName.values())),
+                y=alt.Y(
+                    "to",
+                    axis=alt.Axis(labelOverlap=False, labelLimit=1000, title="To mark"),
+                ).sort(list(axisName.values())),
                 color=alt.value("black"),
             )
         )
 
-        plot = alt.layer(heatmap_shape, star)
+        plot = alt.layer(heatmap_shape, star).properties(
+            width=alt.Step(30),
+            height=alt.Step(30),
+        )
 
         return plot
 

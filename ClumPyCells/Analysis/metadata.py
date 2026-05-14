@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import shutil
-import sys
 
 import altair as alt
 import matplotlib.pyplot as plt
@@ -40,13 +39,7 @@ def _load_homedir():
 
 HOMEDIR, _CONFIG_PATH = _load_homedir()
 
-# Make sibling altair theme module importable regardless of cwd
-_THEME_DIR = os.path.dirname(os.path.abspath(__file__))
-if _THEME_DIR not in sys.path:
-    sys.path.append(_THEME_DIR)
-
-if True:  # In order to bypass isort when saving
-    import altairThemes
+from . import altairThemes
 
 # register the custom theme under a chosen name
 alt.themes.register("publishTheme", altairThemes.publishTheme)

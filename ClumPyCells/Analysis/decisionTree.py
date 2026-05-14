@@ -6,10 +6,12 @@ import dtreeviz
 import numpy as np
 from bayes_opt import BayesianOptimization
 from sklearn.impute import SimpleImputer
+from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import cross_validate
+from sklearn.preprocessing import LabelEncoder
 from sklearn.tree import DecisionTreeClassifier
 
-import altairThemes as altthm
+from . import altairThemes as altthm
 
 from .markcorrResult import *
 from .metadata import *
@@ -117,9 +119,22 @@ def get_leaf_number(X, y, clf):
 
 
 def fit_decision_tree(
-    X, y, feature_names, bo=False, saveFig=True, saveFolder="./", impute=True
+    X,
+    y,
+    feature_names,
+    bo=False,
+    saveFig=True,
+    saveFolder="./",
+    impute=True,
+    max_depth=4,
+    max_features=0.6701,
+    bo_init_points=100,
+    bo_n_iter=30,
+    class_names=None,
+    target_name="group",
+    random_state=123,
 ):
-    params = {"max_depth": 4, "max_features": 0.6701}
+    params = {"max_depth": int(max_depth), "max_features": float(max_features)}
     if impute:
         X = SimpleImputer(strategy="constant", fill_value=0).fit_transform(X)
     else:
@@ -135,7 +150,7 @@ def fit_decision_tree(
             params_cart["max_features"] = max_features
             score = cross_validate(
                 estimator=DecisionTreeClassifier(
-                    random_state=123, **params_cart, criterion="entropy"
+                    random_state=random_state, **params_cart, criterion="entropy"
                 ),
                 X=X,
                 y=y,
@@ -148,8 +163,11 @@ def fit_decision_tree(
         # Run Bayesian Optimization
         params_cart = {"max_depth": (3, 10), "max_features": (0.6, 1)}
         bo_result = BayesianOptimization(cart_bo, params_cart, random_state=111)
-        bo_result.maximize(init_points=100, n_iter=30)
-        params_tuned = bo_result.max["params"]
+        bo_result.maximize(init_points=int(bo_init_points), n_iter=int(bo_n_iter))
+        max_result = bo_result.max
+        if max_result is None:
+            raise RuntimeError("Bayesian optimization did not return parameters")
+        params_tuned = max_result["params"]
         params_tuned["max_depth"] = round(params_tuned["max_depth"])
         params = params_tuned
 
@@ -157,7 +175,7 @@ def fit_decision_tree(
         criterion="entropy",
         max_depth=params["max_depth"],
         max_features=params["max_features"],
-        random_state=123,
+        random_state=random_state,
     )
 
     clf = decision_tree_model.fit(X, y)
@@ -167,16 +185,16 @@ def fit_decision_tree(
             clf,
             X,
             y,
-            target_name="type",
+            target_name=target_name,
             feature_names=feature_names,
-            class_names=["NBM", "AML"],
+            class_names=class_names or [str(value) for value in np.unique(y)],
         )
         viz.view(orientation="LR", scale=0.8, fancy=True).save(
             os.path.join(saveFolder, "tree.svg")
         )
 
-        leaves = clf.apply(X)
-        leaf_counts = pd.Series(leaves).value_counts()
+        leaves = np.asarray(clf.apply(X))
+        leaf_counts = pd.Series(leaves.tolist()).value_counts()
         most_common_leaf = leaf_counts.idxmax()
         sample_idx = np.where(leaves == most_common_leaf)[0][0]
         print(f"Most common leaf: {most_common_leaf}, sample index: {sample_idx}")
@@ -187,6 +205,129 @@ def fit_decision_tree(
         print(f"dtreeviz path for largest leaf saved to: {viz_path}")
 
     return clf
+
+
+def decision_tree_from_feature_table(
+    feature_table,
+    target_col,
+    saveFolder="./",
+    feature_columns=None,
+    bo=False,
+    impute=True,
+    save_fig=True,
+    max_depth=4,
+    max_features=0.6701,
+    bo_init_points=25,
+    bo_n_iter=10,
+    random_state=123,
+):
+    os.makedirs(saveFolder, exist_ok=True)
+    data = feature_table.copy()
+    if target_col not in data.columns:
+        raise ValueError(f"target column '{target_col}' was not found")
+
+    if feature_columns is None:
+        feature_columns = [column for column in data.columns if column != target_col]
+    feature_columns = [column for column in feature_columns if column in data.columns]
+    if not feature_columns:
+        raise ValueError("Select at least one feature column for decision tree")
+
+    X_df = data[feature_columns].apply(pd.to_numeric, errors="coerce")
+    if impute:
+        valid_mask = pd.Series(True, index=X_df.index)
+    else:
+        valid_mask = ~X_df.isna().any(axis=1)
+        data = data.loc[valid_mask].copy()
+        X_df = X_df.loc[valid_mask].copy()
+    y_raw = data[target_col].astype(str)
+    label_encoder = LabelEncoder()
+    y = label_encoder.fit_transform(y_raw)
+    class_names = label_encoder.classes_.tolist()
+
+    clf = fit_decision_tree(
+        X_df.to_numpy(),
+        y,
+        list(X_df.columns),
+        bo=bool(bo),
+        saveFig=bool(save_fig),
+        saveFolder=saveFolder,
+        impute=bool(impute),
+        max_depth=int(max_depth),
+        max_features=float(max_features),
+        bo_init_points=int(bo_init_points),
+        bo_n_iter=int(bo_n_iter),
+        class_names=class_names,
+        target_name=target_col,
+        random_state=int(random_state),
+    )
+
+    X_fit = SimpleImputer(strategy="constant", fill_value=0).fit_transform(X_df)
+    predictions = clf.predict(X_fit)
+    feature_importance = pd.Series(clf.feature_importances_, index=X_df.columns)
+    feature_importance = feature_importance.sort_values(ascending=False)
+    feature_importance.to_csv(os.path.join(saveFolder, "feature_importance.csv"))
+
+    data.to_csv(os.path.join(saveFolder, "training_samples.csv"), index=False)
+    metrics = pd.DataFrame(
+        {
+            "metric": ["training_accuracy", "n_samples", "n_features"],
+            "value": [accuracy_score(y, predictions), len(data), len(feature_columns)],
+        }
+    )
+    metrics.to_csv(os.path.join(saveFolder, "model_metrics.csv"), index=False)
+    report = classification_report(
+        y,
+        predictions,
+        target_names=class_names,
+        output_dict=True,
+        zero_division=0,
+    )
+    pd.DataFrame(report).transpose().to_csv(
+        os.path.join(saveFolder, "classification_report.csv")
+    )
+    return clf, feature_importance, metrics
+
+
+def decision_tree_from_markcorr_groups(
+    groups,
+    resultFolder,
+    axisName=None,
+    norm="min_mid_max",
+    saveFolder="./",
+    **kwargs,
+):
+    os.makedirs(saveFolder, exist_ok=True)
+    axisName = axisName or {}
+    result = MarkcorrResult(groups=groups, resultFolder=resultFolder, axisName=axisName)
+    auc_by_group, _ = result.getAUC(norm=norm, plot=False)
+    rows = []
+    for group_name, auc_table in auc_by_group.items():
+        table = (
+            auc_table.transpose().reset_index().rename(columns={"index": "image_id"})
+        )
+        table["image_id"] = (
+            table["image_id"].astype(str).str.replace("image_", "", regex=False)
+        )
+        table["target"] = group_name
+        rows.append(table)
+    if not rows:
+        raise ValueError("No group/image data available for decision tree")
+    feature_table = pd.concat(rows, ignore_index=True)
+    feature_table.to_csv(
+        os.path.join(saveFolder, "decision_tree_input_table.csv"), index=False
+    )
+    feature_columns = [
+        column
+        for column in feature_table.columns
+        if column not in {"image_id", "target"}
+    ]
+    return decision_tree_from_feature_table(
+        feature_table,
+        target_col="target",
+        saveFolder=saveFolder,
+        feature_columns=feature_columns,
+        **kwargs,
+    )
 
 
 def get_decision_tree_data(
@@ -278,7 +419,17 @@ def view_node_stats(X, clf, saveFolder):
     print(f"Combined plot saved to {plot_path}")
 
 
-def decision_tree(intensity=True, saveFolder="./"):
+def decision_tree(
+    intensity=True,
+    saveFolder="./",
+    bo=True,
+    impute=True,
+    save_fig=True,
+    max_depth=4,
+    max_features=0.6701,
+    bo_init_points=100,
+    bo_n_iter=30,
+):
     if intensity:
         result = AMLResult(sizeCorrection=True, intensity=True)
         folder = os.path.join(saveFolder, "intensity/")
@@ -296,7 +447,19 @@ def decision_tree(intensity=True, saveFolder="./"):
     )
 
     clf = fit_decision_tree(
-        X, y, feature_names, bo=True, saveFig=True, saveFolder=folder
+        X,
+        y,
+        feature_names,
+        bo=bool(bo),
+        saveFig=bool(save_fig),
+        saveFolder=folder,
+        impute=bool(impute),
+        max_depth=int(max_depth),
+        max_features=float(max_features),
+        bo_init_points=int(bo_init_points),
+        bo_n_iter=int(bo_n_iter),
+        class_names=["NBM", "AML"],
+        target_name="type",
     )
     feature_importance = pd.Series(clf.feature_importances_, index=feature_names)
     feature_importance = feature_importance.sort_values(ascending=False)
